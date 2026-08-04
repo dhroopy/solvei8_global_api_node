@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: SuperManager Global Server
+  description: >
+    Receives SolveI8's Line Setup / Workstation / Operation / Tag data
+    (same request shapes as before), stages it in MongoDB by factory_id,
+    and serves it to each factory's Local server via a pull/ack sync.
+  version: "1.0.0"
+
+servers:
+  - url: /
+
+tags:
+  - name: SolveI8 Ingest
+    description: Same endpoints/request shapes SolveI8 already calls today
+  - name: Local Sync
+    description: Called by a factory's Local server to pull and acknowledge staged data
+
+paths:
+  /ext/api/v1/operationBreakdown:
+    post:
+      tags: [SolveI8 Ingest]
+      summary: Receive Operation Breakdown data (factory-segmented)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactoryPayload'
+      responses:
+        '201':
+          description: Staged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /ext/api/v1/lineSetup:
+    post:
+      tags: [SolveI8 Ingest]
+      summary: Receive Line Setup data (factory-segmented)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactoryPayload'
+      responses:
+        '201':
+          description: Staged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /ext/api/v1/tagMapping:
+    post:
+      tags: [SolveI8 Ingest]
+      summary: Receive Tag Mapping data (factory-segmented)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactoryPayload'
+      responses:
+        '201':
+          description: Staged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /global/pull:
+    get:
+      tags: [Local Sync]
+      summary: Pull unsynced staged records for a factory
+      description: >
+        Returns everything staged for this factory_id where last_sync is
+        still null. Does NOT mark anything synced — call /global/ack
+        after successfully processing what's returned.
+      parameters:
+        - in: query
+          name: factory_id
+          required: true
+          schema:
+            type: string
+          example: bgd-ana-app
+      responses:
+        '200':
+          description: Unsynced records for this factory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      factory_id:
+                        type: string
+                      count:
+                        type: integer
+                      records:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StagedRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /global/ack:
+    post:
+      tags: [Local Sync]
+      summary: Acknowledge successfully processed records
+      description: >
+        Marks only the given unique_ids as synced. Anything not
+        acknowledged stays unsynced and will be returned again by the
+        next /global/pull call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factory_id, unique_ids]
+              properties:
+                factory_id:
+                  type: string
+                  example: bgd-ana-app
+                unique_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Acknowledgement result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      factory_id:
+                        type: string
+                      acked:
+                        type: integer
+                      requested:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  schemas:
+    FactoryPayload:
+      type: object
+      required: [factories]
+      properties:
+        factories:
+          type: array
+          items:
+            type: object
+            required: [factoryId]
+            properties:
+              factoryId:
+                type: string
+                example: bgd-ana-app
+            additionalProperties: true
+
+    StageResult:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 201
+        data:
+          type: object
+          properties:
+            factories:
+              type: integer
+            staged:
+              type: integer
+
+    StagedRecord:
+      type: object
+      properties:
+        unique_id:
+          type: string
+        endpoint:
+          type: string
+          enum: [operationBreakdown, lineSetup, tagMapping]
+        data:
+          type: object
+          description: The raw per-factory payload as originally received
+        doa:
+          type: string
+          format: date-time
+          description: Date of addition to the database
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 400
+              error:
+                type: string

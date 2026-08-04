@@ -1,0 +1,10 @@
+# .env
+/node_modules/
+
+#sonar cache files
+.scannerwork/
+/.scannerwork/
+.scannerwork
+#log files
+*.log
+/logs/
