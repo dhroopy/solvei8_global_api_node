@@ -12,5 +12,5 @@ RUN npm install --legacy-peer-deps
 # Bundle app source
 COPY . .
 
-EXPOSE 30119
+EXPOSE 3098
 CMD [ "node", "index.js" ]
