@@ -51,6 +51,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log "Checking system"
 apt-get update -y
+apt install curl -y
 
 ########################################
 # 1. Docker - check first
@@ -352,7 +353,7 @@ PORT=${FLOVATION_VIRTUAL_PORT}
 FACTORY_ID=1
 TimeZone=Asia/Dhaka
 
-SOLVEI8_BASE_URL1=https://solvei8api.flovation.in/mock-solvei8/ext/api/v1/events/batch
+SOLVEI8_BASE_URL1=http://localhost:30119/mock-solvei8/ext/api/v1/events/batch
 SOLVEI8_BASE_URL=https://tracki8app.nint.strawmine.com/skilli8_ledger/ext/api/v1/events/batch
 SOLVEI8_API_KEY=""
 

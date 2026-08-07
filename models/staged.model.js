@@ -3,6 +3,8 @@ const { MongoClient } = require('mongodb');
 const MONGO_URL = process.env.MONGODB_URL; // put your existing connection string in .env
 const DB_NAME = process.env.MONGODB_DB_NAME || 'supermanager_global';
 const COLLECTION = 'staged_data';
+const moment = require('moment-timezone');
+const LOG_TZ = 'Asia/Kolkata';
 
 let db;
 
@@ -38,7 +40,7 @@ async function insertStaged({ factory_id, endpoint, data }) {
     endpoint,       // 'operationBreakdown' | 'lineSetup' | 'tagMapping'
     data,           // the raw payload as received
     last_sync: null,
-    doa: new Date(), // date of addition to DB
+    doa: moment().tz(LOG_TZ).format('YYYY-MM-DD HH:mm:ss')
   };
   await database.collection(COLLECTION).insertOne(doc);
   return doc;
@@ -63,7 +65,7 @@ async function markSynced(unique_ids) {
   const database = await connect();
   const result = await database.collection(COLLECTION).updateMany(
     { unique_id: { $in: unique_ids } },
-    { $set: { last_sync: new Date() } }
+    { $set: { last_sync: moment().tz(LOG_TZ).format('YYYY-MM-DD HH:mm:ss') } }
   );
   return result.modifiedCount;
 }

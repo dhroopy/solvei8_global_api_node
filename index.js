@@ -8,15 +8,18 @@ const path = require('path');
 
 const stagedModel = require('./models/staged.model');
 const globalRoutes = require('./routes/global.routes');
+const apiLogger = require('./middleware/apiLogger');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Line Setup / OB pushes can be large
+app.use(apiLogger); // logs every request/response to MongoDB, Asia/Kolkata timestamps
 
 // Swagger UI at /docs
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
