@@ -15,6 +15,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Line Setup / OB pushes can be large
 app.use(apiLogger); // logs every request/response to MongoDB, Asia/Kolkata timestamps
+app.use(express.static('public')); // simple admin UI — served at /
 
 // Swagger UI at /docs
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
