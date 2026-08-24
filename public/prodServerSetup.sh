@@ -369,7 +369,7 @@ db_database=${MYSQL_DATABASE}
 db_user=${MYSQL_USER}
 db_password=${MYSQL_PASSWORD}
 
-NODE_ENV=development
+NODE_ENV=production
 BASE_URL=https://solvei8api.flovation.in
 MQTT_DEBUG_LOG=true
 
