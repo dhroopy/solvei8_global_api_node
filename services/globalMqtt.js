@@ -22,6 +22,11 @@ function connect() {
   // subscribing here now so the wiring exists even though the current
   // design does acks over HTTP, not MQTT.
   client.subscribe(`LG/${process.env.NODE_ENV}/+`);
+
+  // The flovation-mqtt-listener systemd service (from localServerSetup.sh
+  // / prodServerSetup.sh) reports its own connect/disconnect status here.
+  client.subscribe(`Local_To_Global_Apis/production/+`);
+
   client.on('message', (topic, payload) => {
     console.log(`[global] received on ${topic}: ${payload.toString()}`);
   });
@@ -38,4 +43,17 @@ async function pingFactory(factory_id) {
   c.publish(topic, JSON.stringify({ type: 'pull_ready', factory_id, ts: Date.now() }));
 }
 
-module.exports = { connect, pingFactory };
+// Triggers the Flovation OTA update on a specific factory's local
+// machine — the flovation-mqtt-listener systemd service (see
+// localServerSetup.sh / prodServerSetup.sh) subscribes to exactly this
+// topic and, on receiving { event: "update apis" }, runs flovation.sh:
+// stop -> remove -> pull latest image -> run. This is a real,
+// consequential remote action (it restarts the factory's local API
+// container), not a notification like pingFactory() above.
+async function triggerFactoryUpdate(factory_id) {
+  const c = connect();
+  const topic = `Global_To_Local_Apis/${process.env.NODE_ENV}/${factory_id}`;
+  c.publish(topic, JSON.stringify({ event: 'update apis', factoryId: factory_id, ts: Date.now() }));
+}
+
+module.exports = { connect, pingFactory, triggerFactoryUpdate };

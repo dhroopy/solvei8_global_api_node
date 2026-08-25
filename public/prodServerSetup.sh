@@ -482,7 +482,7 @@ check_and_heal_container() {
 ########################################
 MQTT_LISTENER_ENABLED="true"
 MQTT_LISTENER_DIR="${SCRIPT_DIR}/mqtt-listener"
-MQTT_LISTENER_SERVICE="flovation-mqtt-listener"
+MQTT_LISTENER_SERVICE="flovation_api_update"
 
 if [[ "${MQTT_LISTENER_ENABLED}" == "true" ]]; then
     log "Setting up MQTT update listener"
@@ -552,8 +552,8 @@ function start() {
 
   client.on("connect", () => {
     console.log(`✅ MQTT listener connected (${brokerUrl})`);
-    const subTopic = `Global_To_Local_Apis/production/${process.env.FACTORY_ID}`;
-    const pubTopic = `Local_To_Global_Apis/production/${process.env.FACTORY_ID}`;
+    const subTopic = `Global_To_Local_Apis/${process.env.NODE_ENV}/${process.env.FACTORY_ID}`;
+    const pubTopic = `Local_To_Global_Apis/${process.env.NODE_ENV}/${process.env.FACTORY_ID}`;
     client.publish(pubTopic, JSON.stringify({ event: "connected", factoryId: process.env.FACTORY_ID, version: API_VERSION, status: "online" }));
     client.subscribe(subTopic, (err) => {
       if (!err) console.log(`📡 Subscribed: ${subTopic}`);

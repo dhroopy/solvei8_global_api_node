@@ -163,6 +163,141 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /global/trigger-pull:
+    post:
+      tags: [Local Sync]
+      summary: Manually fire a "pull_ready" MQTT ping to a factory's Local server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factory_id]
+              properties:
+                factory_id:
+                  type: string
+      responses:
+        '200':
+          description: Ping sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /global/trigger-ota:
+    post:
+      tags: [Local Sync]
+      summary: Trigger an OTA update on a factory's local machine (restarts its API container)
+      description: >
+        Publishes { event: "update apis" }.
+        The flovation-mqtt-listener systemd service on that factory's local
+        machine will stop, remove, pull the latest image, and restart its
+        Flovation API container. This is a real, consequential action against
+        live factory-floor infrastructure.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factory_id]
+              properties:
+                factory_id:
+                  type: string
+      responses:
+        '200':
+          description: OTA trigger sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /logs/api-triggers:
+    get:
+      tags: [Logs]
+      summary: Paginated log of every API call this server has handled
+      parameters:
+        - in: query
+          name: factory_id
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Paginated API call logs
+
+  /logs/sync:
+    get:
+      tags: [Logs]
+      summary: Paginated log of every staged record for a factory (synced and unsynced)
+      parameters:
+        - in: query
+          name: factory_id
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Paginated sync logs
+
+  /logs/device-mqtt:
+    post:
+      tags: [Logs]
+      summary: Forward device MQTT IN/OUT logs from a Local server, tagged with factory_id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factory_id]
+              properties:
+                factory_id: { type: string }
+                logs:
+                  type: array
+                  description: Bulk form — array of log entries
+                  items:
+                    type: object
+                    properties:
+                      device_id: { type: string }
+                      direction: { type: string, enum: [IN, OUT] }
+                      topic: { type: string }
+                      msg_type: { type: string }
+                      payload: { type: string }
+                      created_at: { type: string }
+      responses:
+        '201':
+          description: Logs stored
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      tags: [Logs]
+      summary: Paginated query of forwarded device MQTT logs
+      parameters:
+        - in: query
+          name: factory_id
+          schema: { type: string }
+        - in: query
+          name: device_id
+          schema: { type: string }
+        - in: query
+          name: direction
+          schema: { type: string, enum: [IN, OUT] }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Paginated device MQTT logs
+
 components:
   schemas:
     FactoryPayload:

@@ -1,4 +1,5 @@
 const stagedModel = require('../models/staged.model');
+const globalMqtt = require('../services/globalMqtt');
 const { asyncHandler, ok, badRequest } = require('../utils/response');
 
 // GET /global/pull?factory_id=X
@@ -50,4 +51,31 @@ const ack = asyncHandler(async (req, res) => {
   return ok(res, { factory_id, acked: modifiedCount, requested: unique_ids.length });
 });
 
-module.exports = { pull, ack };
+// POST /global/trigger-pull
+// Body: { factory_id }
+// Manually fires the same "pull_ready" MQTT ping the ingest controller
+// already sends automatically on every new push.
+const triggerPull = asyncHandler(async (req, res) => {
+  const { factory_id } = req.body;
+  if (!factory_id) return badRequest(res, 'factory_id is required');
+
+  await globalMqtt.pingFactory(factory_id);
+  return ok(res, { factory_id, triggered: true });
+});
+
+// POST /global/trigger-ota
+// Body: { factory_id }
+// Fires the REAL OTA update trigger — the flovation-mqtt-listener
+// systemd service on that factory's local machine will stop, remove,
+// pull-latest, and restart its Flovation API container. This actually
+// restarts production infrastructure on the factory floor — the
+// dashboard should confirm before calling this, not fire it casually.
+const triggerOta = asyncHandler(async (req, res) => {
+  const { factory_id } = req.body;
+  if (!factory_id) return badRequest(res, 'factory_id is required');
+
+  await globalMqtt.triggerFactoryUpdate(factory_id);
+  return ok(res, { factory_id, otaTriggered: true });
+});
+
+module.exports = { pull, ack, triggerPull, triggerOta };
