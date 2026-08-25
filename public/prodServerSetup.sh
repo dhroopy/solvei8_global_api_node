@@ -29,7 +29,7 @@ MYSQL_DOCKER_DATA_DIR="/opt/mysql"  # only used when DOCKERIZE_MYSQL="true"
 FLOVATION_ENABLED="true"
 FLOVATION_DIR=""                                     # left empty here - set below to SCRIPT_DIR/flovation, edit only if you want a different location
 FLOVATION_CONTAINER_NAME="apis"
-FLOVATION_IMAGE="9930i/solvei8_local:prod"
+FLOVATION_IMAGE="9930i/solvei8_local:production"
 FLOVATION_VIRTUAL_PORT="30119"
 FLOVATION_FORCE_REGENERATE_ENV="false"     # true = always overwrite flovation.env with the template below (use when you've edited the template and want it applied)
 

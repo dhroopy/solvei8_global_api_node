@@ -21,7 +21,7 @@ function connect() {
   // lightweight "I'm alive" or explicit ack-via-MQTT signal in future —
   // subscribing here now so the wiring exists even though the current
   // design does acks over HTTP, not MQTT.
-  client.subscribe(process.env.NODE_ENV == "production" ? `LG/production/+` : `LG/+`);
+  client.subscribe(`LG/${process.env.NODE_ENV}/+`);
   client.on('message', (topic, payload) => {
     console.log(`[global] received on ${topic}: ${payload.toString()}`);
   });
