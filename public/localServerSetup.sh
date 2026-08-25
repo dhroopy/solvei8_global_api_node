@@ -382,7 +382,6 @@ MQTT_SUB_PREFIX=Solvei8/I/
 
 RETRY_INTERVAL_MS=30000                      # retry every 30s
 RETRY_PENDING_EVENTS=20                      # RETRY PENDING EVENTS
-API_VERSION="1.2.0"
 FLOVATION_SCRIPT_PATH="${FLOVATION_DIR}/flovation.sh"
 
 EOF
@@ -477,6 +476,149 @@ check_and_heal_container() {
         fi
     fi
 }
+
+########################################
+# 7. MQTT Update Listener (Node)
+########################################
+MQTT_LISTENER_ENABLED="true"
+MQTT_LISTENER_DIR="${SCRIPT_DIR}/mqtt-listener"
+MQTT_LISTENER_SERVICE="flovation-mqtt-listener"
+
+if [[ "${MQTT_LISTENER_ENABLED}" == "true" ]]; then
+    log "Setting up MQTT update listener"
+
+    mkdir -p "${MQTT_LISTENER_DIR}"
+
+    # package.json - only created once, npm install is idempotent anyway
+    if [[ ! -f "${MQTT_LISTENER_DIR}/package.json" ]]; then
+        cat > "${MQTT_LISTENER_DIR}/package.json" <<EOF
+{
+  "name": "flovation-mqtt-listener",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "mqtt": "^5.3.0",
+    "dotenv": "^16.3.1"
+  }
+}
+EOF
+    fi
+
+    # index.js - always refreshed, no user-editable state, same pattern as flovation.sh
+    cat > "${MQTT_LISTENER_DIR}/index.js" <<'EOJS'
+require("dotenv").config({ path: process.env.ENV_FILE_PATH || "./flovation.env" });
+
+const mqtt = require("mqtt");
+const { exec } = require("child_process");
+
+const API_VERSION = process.env.LISTENER_VERSION || "1.0.0";
+
+const options = {
+  clientId:        "flovation_listener_" + Math.random().toString(16).substr(2, 8),
+  username:        process.env.GLOBAL_MQTT_USER,
+  password:        process.env.GLOBAL_MQTT_PASS,
+  keepalive:       60,
+  reconnectPeriod: 1000,
+  clean:           true,
+  will: {
+    topic: `Local_To_Global_Apis/${process.env.FACTORY_ID}`,
+    payload: JSON.stringify({ event: "disconnected", factoryId: process.env.FACTORY_ID, status: "offline" }),
+    qos: 1,
+    retain: false
+  }
+};
+
+let updateInProgress = false;
+
+function runFlovationUpdate() {
+  if (updateInProgress) { console.log("⏭️  Update already in progress, skipping"); return; }
+  const scriptPath = process.env.FLOVATION_SCRIPT_PATH;
+  if (!scriptPath) { console.error("❌ FLOVATION_SCRIPT_PATH not set"); return; }
+
+  updateInProgress = true;
+  console.log(`🚀 Running update script: ${scriptPath}`);
+  exec(scriptPath, { shell: "/bin/bash" }, (error, stdout, stderr) => {
+    updateInProgress = false;
+    if (error) { console.error(`❌ Update script failed: ${error.message}`); return; }
+    if (stderr) console.warn(`⚠️ stderr: ${stderr}`);
+    console.log(`✅ Update output:\n${stdout}`);
+  });
+}
+
+function start() {
+  const brokerUrl = `mqtt://${process.env.GLOBAL_MQTT_HOST}:${process.env.GLOBAL_MQTT_PORT}`;
+  const client = mqtt.connect(brokerUrl, options);
+
+  client.on("connect", () => {
+    console.log(`✅ MQTT listener connected (${brokerUrl})`);
+    const subTopic = `Global_To_Local_Apis/${process.env.FACTORY_ID}`;
+    const pubTopic = `Local_To_Global_Apis/${process.env.FACTORY_ID}`;
+    client.publish(pubTopic, JSON.stringify({ event: "connected", factoryId: process.env.FACTORY_ID, version: API_VERSION, status: "online" }));
+    client.subscribe(subTopic, (err) => {
+      if (!err) console.log(`📡 Subscribed: ${subTopic}`);
+      else console.error("❌ Subscribe error:", subTopic, err);
+    });
+  });
+
+  client.on("message", (topic, message) => {
+    try {
+      const payload = JSON.parse(message.toString());
+      console.log(`📥 [${topic}]`, payload);
+      if (payload.event === "update apis" || payload.events === "update apis") {
+        runFlovationUpdate();
+      }
+    } catch (e) {
+      console.error("❌ Message handler error:", e);
+    }
+  });
+
+  client.on("error", (err) => console.error("❌ MQTT error:", err.message));
+  client.on("close", () => console.log("🔌 MQTT disconnected"));
+  client.on("reconnect", () => console.log("♻️  Reconnecting..."));
+}
+
+start();
+EOJS
+
+    info "Installing npm dependencies for listener..."
+    (cd "${MQTT_LISTENER_DIR}" && npm install --omit=dev --no-audit --no-fund &> /tmp/mqtt-listener-npm.log) \
+        || { echo -e "\033[1;31m[!] npm install failed, see /tmp/mqtt-listener-npm.log\033[0m"; }
+
+    # systemd service - always refreshed, then (re)started so code changes take effect
+    cat > "/etc/systemd/system/${MQTT_LISTENER_SERVICE}.service" <<EOF
+[Unit]
+Description=Flovation MQTT Update Listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${MQTT_LISTENER_DIR}
+Environment=ENV_FILE_PATH=${ENV_FILE_PATH}
+ExecStart=$(command -v node) ${MQTT_LISTENER_DIR}/index.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/${MQTT_LISTENER_SERVICE}.log
+StandardError=append:/var/log/${MQTT_LISTENER_SERVICE}.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable "${MQTT_LISTENER_SERVICE}" &> /dev/null
+    systemctl restart "${MQTT_LISTENER_SERVICE}"
+
+    sleep 2
+    if systemctl is-active --quiet "${MQTT_LISTENER_SERVICE}"; then
+        log "MQTT listener running as systemd service (${MQTT_LISTENER_SERVICE})"
+    else
+        echo -e "\033[1;31m[!] Listener service failed to start. Check: journalctl -u ${MQTT_LISTENER_SERVICE} -n 50\033[0m"
+    fi
+else
+    skip "MQTT listener disabled (MQTT_LISTENER_ENABLED=false)"
+fi
 
 check_and_heal_container "mosquitto"
 if [[ "${DOCKERIZE_MYSQL}" == "true" ]]; then

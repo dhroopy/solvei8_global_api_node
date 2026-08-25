@@ -21,7 +21,7 @@ function connect() {
   // lightweight "I'm alive" or explicit ack-via-MQTT signal in future —
   // subscribing here now so the wiring exists even though the current
   // design does acks over HTTP, not MQTT.
-  client.subscribe('LG/+');
+  client.subscribe(process.env.NODE_ENV == "production" ? `LG/production/+` : `LG/+`);
   client.on('message', (topic, payload) => {
     console.log(`[global] received on ${topic}: ${payload.toString()}`);
   });
@@ -34,7 +34,7 @@ function connect() {
 // deliberately minimal.
 async function pingFactory(factory_id) {
   const c = connect();
-  const topic = `GL/${factory_id}`;
+  const topic = process.env.NODE_ENV == "production" ? `GL/production/${factory_id}` : `GL/${factory_id}`;
   c.publish(topic, JSON.stringify({ type: 'pull_ready', factory_id, ts: Date.now() }));
 }
 
