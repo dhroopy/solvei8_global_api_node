@@ -258,6 +258,7 @@
         <button class="tab-btn" data-tab="sync" onclick="switchTab('sync')">🔄 Sync Log</button>
         <button class="tab-btn" data-tab="device" onclick="switchTab('device')">📶 Device MQTT</button>
         <button class="tab-btn" data-tab="devices" onclick="switchTab('devices')">🔧 Devices</button>
+        <button class="tab-btn" data-tab="env" onclick="switchTab('env')">🌱 Env</button>
         <button class="tab-btn" data-tab="deploy" onclick="switchTab('deploy')">🚀 Deploy</button>
     </div>
 
@@ -371,6 +372,34 @@
         <div class="pager">
             <div class="pager-readout">PAGE <b id="devices-page">1</b> / <span id="devices-totalpages">1</span> — <span id="devices-total">0</span> ENTRIES</div>
             <div class="pager-buttons"><button class="btn btn-reset" onclick="devicesPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="devicesNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ ENV (per-factory config snapshots) ============ -->
+    <div class="panel" id="panel-env">
+        <div class="ota-warning" style="margin-bottom:16px;">🔒 Secrets (anything matching PASS, KEY, TOKEN, SECRET, PWD, CREDENTIAL) are redacted before this ever leaves each factory's local machine — you're seeing real config values here, never real passwords or keys.</div>
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="env-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadEnvSnapshots(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('env-factory').value='';loadEnvSnapshots(1)">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Factory</th><th>Vars Reported</th><th>Last Reported</th><th>First Seen</th></tr></thead>
+                <tbody id="env-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="env-empty" style="display:none;"><div class="icon">🌱</div>No env snapshots reported yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="env-page">1</b> / <span id="env-totalpages">1</span> — <span id="env-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="envPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="envNext()">Next &rarr;</button></div>
         </div>
     </div>
 
@@ -693,6 +722,50 @@
     function devicesPrev() { if (devicesPage > 1) loadDevices(devicesPage - 1); }
     function devicesNext() { loadDevices(devicesPage + 1); }
 
+    // ---------- ENV tab (per-factory config snapshots) ----------
+    let envPage = 1;
+    let envRowsData = [];
+    async function loadEnvSnapshots(page) {
+        envPage = page;
+        const factory = document.getElementById('env-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/logs/env?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        envRowsData = data.rows;
+        const tbody = document.getElementById('env-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('env-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r, i) => {
+            const varCount = r.env ? Object.keys(r.env).length : 0;
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openEnvModal(i);
+            tr.innerHTML = '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + varCount + '</td>' +
+                '<td>' + escapeHtml(r.updated_at) + '</td>' +
+                '<td>' + escapeHtml(r.first_reported_at) + '</td>';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('env-page').textContent = data.page;
+        document.getElementById('env-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('env-total').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+    function envPrev() { if (envPage > 1) loadEnvSnapshots(envPage - 1); }
+    function envNext() { loadEnvSnapshots(envPage + 1); }
+
+    function openEnvModal(index) {
+        const r = envRowsData[index];
+        if (!r) return;
+        const sections = [
+            { label: 'Reported', content: { factory_id: r.factory_id, updated_at: r.updated_at, first_reported_at: r.first_reported_at } },
+            { label: 'Environment (secrets redacted)', content: r.env },
+        ];
+        openJsonModal('Env — ' + r.factory_id, sections);
+    }
+
     // Row click opens the last-message viewer (same JSON modal pattern as
     // API Triggers/Sync Log); the OTA button is a separate action with
     // its click stopped from bubbling into the row handler.
@@ -861,6 +934,7 @@
     loadSyncLogs(1);
     loadDeviceLogs(1);
     loadDevices(1);
+    loadEnvSnapshots(1);
 </script>
 </body>
 </html>

@@ -26,4 +26,7 @@ router.post('/global/trigger-device-ota', sync.triggerDeviceOta);
 router.get('/devices', logs.getDevices);
 router.post('/global/trigger-device-ota-batch', sync.triggerDeviceOtaBatch);
 
+router.post('/logs/env', logs.ingestEnv);
+router.get('/logs/env', logs.getEnvSnapshots);
+
 module.exports = router;

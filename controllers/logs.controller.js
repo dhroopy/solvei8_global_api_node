@@ -2,6 +2,7 @@ const apiLogModel = require('../models/apiLog.model');
 const stagedModel = require('../models/staged.model');
 const deviceMqttLogModel = require('../models/deviceMqttLog.model');
 const deviceRegistryModel = require('../models/deviceRegistry.model');
+const envRegistryModel = require('../models/envRegistry.model');
 const { asyncHandler, ok, created, badRequest } = require('../utils/response');
 
 // GET /logs/api-triggers?factory_id=X&page=1&limit=50
@@ -66,4 +67,37 @@ const getDevices = asyncHandler(async (req, res) => {
   return ok(res, result);
 });
 
-module.exports = { getApiTriggerLogs, getSyncLogs, ingestDeviceMqttLog, getDeviceMqttLogs, getDevices };
+// Same redaction pattern as the Local server's envReporter.js — applied
+// AGAIN here as a backstop. The Local side should already redact before
+// sending, but if an older Local server (without that update) or
+// anything else posts here directly, secrets still never get stored,
+// not just never displayed.
+const ENV_SENSITIVE_PATTERN = /PASS|PWD|SECRET|KEY|TOKEN|CREDENTIAL/i;
+function redactEnvServerSide(env) {
+  const redacted = {};
+  for (const [key, value] of Object.entries(env || {})) {
+    redacted[key] = ENV_SENSITIVE_PATTERN.test(key) ? '***REDACTED***' : value;
+  }
+  return redacted;
+}
+
+// POST /logs/env — Body: { factory_id, env: {...} }
+// One snapshot per factory, overwritten on every report (a Local server
+// reports this once on every startup — see envReporter.js).
+const ingestEnv = asyncHandler(async (req, res) => {
+  const { factory_id, env } = req.body;
+  if (!factory_id) return badRequest(res, 'factory_id is required');
+  if (!env || typeof env !== 'object') return badRequest(res, 'env object is required');
+
+  await envRegistryModel.upsertEnv(factory_id, redactEnvServerSide(env));
+  return created(res, { factory_id, stored: true });
+});
+
+// GET /logs/env?factory_id=X&page=1&limit=50
+const getEnvSnapshots = asyncHandler(async (req, res) => {
+  const { factory_id, page, limit } = req.query;
+  const result = await envRegistryModel.getEnvSnapshots({ factory_id, page, limit });
+  return ok(res, result);
+});
+
+module.exports = { getApiTriggerLogs, getSyncLogs, ingestDeviceMqttLog, getDeviceMqttLogs, getDevices, ingestEnv, getEnvSnapshots };
