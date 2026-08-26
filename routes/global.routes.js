@@ -22,4 +22,8 @@ router.get('/logs/sync', logs.getSyncLogs);
 router.post('/logs/device-mqtt', logs.ingestDeviceMqttLog);
 router.get('/logs/device-mqtt', logs.getDeviceMqttLogs);
 
+router.post('/global/trigger-device-ota', sync.triggerDeviceOta);
+router.get('/devices', logs.getDevices);
+router.post('/global/trigger-device-ota-batch', sync.triggerDeviceOtaBatch);
+
 module.exports = router;

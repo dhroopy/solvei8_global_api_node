@@ -257,6 +257,7 @@
         <button class="tab-btn active" data-tab="api" onclick="switchTab('api')">📡 API Triggers</button>
         <button class="tab-btn" data-tab="sync" onclick="switchTab('sync')">🔄 Sync Log</button>
         <button class="tab-btn" data-tab="device" onclick="switchTab('device')">📶 Device MQTT</button>
+        <button class="tab-btn" data-tab="devices" onclick="switchTab('devices')">🔧 Devices</button>
         <button class="tab-btn" data-tab="deploy" onclick="switchTab('deploy')">🚀 Deploy</button>
     </div>
 
@@ -345,8 +346,37 @@
         </div>
     </div>
 
+    <!-- ============ DEVICES (registry + OTA) ============ -->
+    <div class="panel" id="panel-devices">
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="devices-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadDevices(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('devices-factory').value='';loadDevices(1)">↺ Reset</button>
+                    <button class="btn btn-danger" onclick="openBatchOtaConfirm()">🚀 Batch OTA (filtered factory)</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Factory</th><th>Device</th><th>MAC</th><th>FW Version</th><th>Last Msg Type</th><th>Last Msg At</th><th></th></tr></thead>
+                <tbody id="devices-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="devices-empty" style="display:none;"><div class="icon">🔧</div>No devices seen yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="devices-page">1</b> / <span id="devices-totalpages">1</span> — <span id="devices-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="devicesPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="devicesNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
     <!-- ============ DEPLOY ============ -->
     <div class="panel" id="panel-deploy">
+
         <div class="deploy-grid">
             <div class="card">
                 <div class="card-top-bar"></div>
@@ -413,6 +443,50 @@
             <div class="modal-actions">
                 <button class="btn btn-reset" onclick="closeOtaConfirm()">Cancel</button>
                 <button class="btn btn-danger" onclick="confirmOta()">Confirm &amp; Push</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device OTA confirm modal -->
+    <div class="modal" id="deviceOtaModal">
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header" style="background: var(--red);">
+                <div class="modal-title">Push firmware to device</div>
+                <button class="close-btn" onclick="closeDeviceOtaConfirm()">✕</button>
+            </div>
+            <div class="modal-simple-body">
+                <p>Factory <b id="deviceOtaFactory"></b> · Device <b id="deviceOtaDeviceId"></b></p>
+                <div class="filter-item" style="width:100%; margin-bottom: 4px;">
+                    <label class="filter-label">Firmware URL (otaFile)</label>
+                    <input type="text" id="deviceOtaUrl" class="filter-input" style="width:100%;" placeholder="https://your-global-domain/firmware/v4.1.17.bin">
+                </div>
+                <p style="margin-top:14px; margin-bottom:0;">The device will download this file directly and restart once the update completes. Make sure the URL is publicly reachable — the device cannot see your local network.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" onclick="closeDeviceOtaConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeviceOta()">Confirm &amp; Push</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch device OTA confirm modal -->
+    <div class="modal" id="batchOtaModal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header" style="background: var(--red);">
+                <div class="modal-title">Push firmware to multiple devices</div>
+                <button class="close-btn" onclick="closeBatchOtaConfirm()">✕</button>
+            </div>
+            <div class="modal-simple-body">
+                <p>Factory <b id="batchOtaFactory"></b> — <b id="batchOtaCount"></b> device(s) currently registered.</p>
+                <div class="ota-warning" style="margin-bottom:16px;">⚠️ This pushes the SAME firmware file to every device shown above, all at once. Double-check the URL and the factory before confirming — this cannot be undone once sent.</div>
+                <div class="filter-item" style="width:100%; margin-bottom: 4px;">
+                    <label class="filter-label">Firmware URL (otaFile)</label>
+                    <input type="text" id="batchOtaUrl" class="filter-input" style="width:100%;" placeholder="https://your-global-domain/firmware/v4.1.17.bin">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" onclick="closeBatchOtaConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmBatchOta()">Confirm &amp; Push to All</button>
             </div>
         </div>
     </div>
@@ -580,6 +654,144 @@
     function devicePrev() { if (devicePage > 1) loadDeviceLogs(devicePage - 1); }
     function deviceNext() { loadDeviceLogs(devicePage + 1); }
 
+    // ---------- DEVICES tab (registry + OTA trigger) ----------
+    let devicesPage = 1;
+    async function loadDevices(page) {
+        devicesPage = page;
+        const factory = document.getElementById('devices-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/devices?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        const tbody = document.getElementById('devices-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('devices-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r) => {
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openLastMsgModal(r);
+            tr.innerHTML = '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + escapeHtml(r.device_id) + '</td>' +
+                '<td>' + (escapeHtml(r.mac) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + (escapeHtml(r.fw_version) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + (escapeHtml(r.last_msg_type) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + escapeHtml(r.last_msg_at) + '</td>' +
+                '<td><button class="btn btn-danger" style="padding:5px 12px; font-size:0.78em;">🚀 OTA</button></td>';
+            const otaBtn = tr.querySelector('td:last-child button');
+            otaBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // don't also trigger the row's own click (last-message viewer)
+                openDeviceOtaConfirm(r.factory_id, r.device_id);
+            });
+            tbody.appendChild(tr);
+        });
+        document.getElementById('devices-page').textContent = data.page;
+        document.getElementById('devices-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('devices-total').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+    function devicesPrev() { if (devicesPage > 1) loadDevices(devicesPage - 1); }
+    function devicesNext() { loadDevices(devicesPage + 1); }
+
+    // Row click opens the last-message viewer (same JSON modal pattern as
+    // API Triggers/Sync Log); the OTA button is a separate action with
+    // its click stopped from bubbling into the row handler.
+    function openLastMsgModal(r) {
+        const sections = [
+            { label: 'Device', content: { factory_id: r.factory_id, device_id: r.device_id, mac: r.mac, fw_version: r.fw_version } },
+            { label: 'Last Message (' + (r.last_msg_direction || '') + ' · ' + (r.last_msg_type || 'unknown') + ')', content: (() => { try { return JSON.parse(r.last_msg); } catch (e) { return r.last_msg; } })() },
+        ];
+        openJsonModal('Device ' + r.device_id + ' — last message', sections);
+    }
+
+    function openDeviceOtaConfirm(factory_id, device_id) {
+        document.getElementById('deviceOtaFactory').textContent = factory_id;
+        document.getElementById('deviceOtaDeviceId').textContent = device_id;
+        document.getElementById('deviceOtaUrl').value = '';
+        document.getElementById('deviceOtaModal').dataset.factory = factory_id;
+        document.getElementById('deviceOtaModal').dataset.device = device_id;
+        document.getElementById('deviceOtaModal').classList.add('active');
+    }
+    function closeDeviceOtaConfirm() { document.getElementById('deviceOtaModal').classList.remove('active'); }
+    document.getElementById('deviceOtaModal').addEventListener('click', (e) => { if (e.target.id === 'deviceOtaModal') closeDeviceOtaConfirm(); });
+
+    async function confirmDeviceOta() {
+        const modal = document.getElementById('deviceOtaModal');
+        const factory_id = modal.dataset.factory;
+        const device_id = modal.dataset.device;
+        const otaFile = document.getElementById('deviceOtaUrl').value.trim();
+        if (!otaFile || !/^https?:\/\//i.test(otaFile)) {
+            alert('Enter a full http(s) firmware URL first.');
+            return;
+        }
+        closeDeviceOtaConfirm();
+        try {
+            const res = await fetch('/global/trigger-device-ota', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ factory_id, device_id, otaFile }),
+            });
+            const json = await res.json();
+            if (res.ok && json.data && json.data.triggered) {
+                alert('OTA command sent to device ' + device_id + ' on ' + factory_id + '.');
+            } else {
+                throw new Error(json.error || 'Unknown error');
+            }
+        } catch (e) {
+            alert('Failed to trigger device OTA: ' + e.message);
+        }
+    }
+
+    // ---------- Batch OTA (all devices in the filtered factory) ----------
+    async function openBatchOtaConfirm() {
+        const factory_id = document.getElementById('devices-factory').value.trim();
+        if (!factory_id) {
+            alert('Enter a Factory ID in the filter above first — batch OTA always targets exactly one factory, never all of them at once.');
+            return;
+        }
+        // Fetch just the count (limit=1 keeps this cheap — total comes
+        // back regardless of how many rows are actually returned).
+        const res = await fetch('/devices?' + new URLSearchParams({ factory_id, page: 1, limit: 1 }).toString());
+        const json = await res.json();
+        const total = json.data ? json.data.total : 0;
+        if (!total) {
+            alert('No devices registered for factory ' + factory_id + ' yet.');
+            return;
+        }
+        document.getElementById('batchOtaFactory').textContent = factory_id;
+        document.getElementById('batchOtaCount').textContent = total;
+        document.getElementById('batchOtaUrl').value = '';
+        document.getElementById('batchOtaModal').dataset.factory = factory_id;
+        document.getElementById('batchOtaModal').classList.add('active');
+    }
+    function closeBatchOtaConfirm() { document.getElementById('batchOtaModal').classList.remove('active'); }
+    document.getElementById('batchOtaModal').addEventListener('click', (e) => { if (e.target.id === 'batchOtaModal') closeBatchOtaConfirm(); });
+
+    async function confirmBatchOta() {
+        const factory_id = document.getElementById('batchOtaModal').dataset.factory;
+        const otaFile = document.getElementById('batchOtaUrl').value.trim();
+        if (!otaFile || !/^https?:\/\//i.test(otaFile)) {
+            alert('Enter a full http(s) firmware URL first.');
+            return;
+        }
+        closeBatchOtaConfirm();
+        try {
+            const res = await fetch('/global/trigger-device-ota-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ factory_id, otaFile }),
+            });
+            const json = await res.json();
+            if (res.ok && json.data && json.data.triggered) {
+                alert('OTA command sent to ' + json.data.deviceCount + ' device(s) on ' + factory_id + '.');
+            } else {
+                throw new Error(json.error || 'Unknown error');
+            }
+        } catch (e) {
+            alert('Failed to trigger batch OTA: ' + e.message);
+        }
+    }
+
     function updateFactorySummary(factory) {
         document.getElementById('sumFactory').textContent = factory || 'All Factories';
     }
@@ -606,7 +818,7 @@
     }
     function closeJsonModal() { document.getElementById('jsonModal').classList.remove('active'); }
     document.getElementById('jsonModal').addEventListener('click', (e) => { if (e.target.id === 'jsonModal') closeJsonModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeJsonModal(); closeOtaConfirm(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeJsonModal(); closeOtaConfirm(); closeDeviceOtaConfirm(); closeBatchOtaConfirm(); } });
 
     function openOtaConfirm() {
         const factory = document.getElementById('ota-factory').value.trim();
@@ -648,6 +860,7 @@
     loadApiLogs(1);
     loadSyncLogs(1);
     loadDeviceLogs(1);
+    loadDevices(1);
 </script>
 </body>
 </html>
