@@ -41,7 +41,7 @@ async function pingFactory(factory_id) {
 // flovation.sh: stop -> remove -> pull latest image -> run.
 async function triggerFactoryUpdate(factory_id) {
   const c = connect();
-  const topic = `Global_To_Local_Apis/production/${factory_id}`;
+  const topic = `Global_To_Local_Apis/${process.env.NODE_ENV}/${factory_id}`;
   c.publish(topic, JSON.stringify({ event: 'update apis', factoryId: factory_id, ts: Date.now() }));
 }
 
@@ -59,7 +59,7 @@ async function triggerFactoryUpdate(factory_id) {
 // files today. No firmware changes needed.
 async function triggerDeviceOta(factory_id, device_id, otaFile) {
   const c = connect();
-  const topic = `Global_To_Local_Device_Ota/production/${factory_id}`;
+  const topic = `Global_To_Local_Device_Ota/${process.env.NODE_ENV}/${factory_id}`;
   c.publish(topic, JSON.stringify({ event: 'device_ota', deviceId: device_id, otaFile, ts: Date.now() }));
 }
 
