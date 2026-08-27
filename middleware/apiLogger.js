@@ -3,6 +3,19 @@ const apiLogModel = require('../models/apiLog.model');
 
 const LOG_TZ = 'Asia/Kolkata';
 
+// Pulls factory_id out of whatever shape the request actually has it in —
+// covers all of: the 3 SolveI8 ingest endpoints (factories[0].factoryId
+// in the body), /global/pull (factory_id as a query param), and
+// /global/ack + /global/trigger-* (factory_id in the body).
+function extractFactoryId(req) {
+  if (req.query && req.query.factory_id) return req.query.factory_id;
+  if (req.body && req.body.factory_id) return req.body.factory_id;
+  if (req.body && Array.isArray(req.body.factories) && req.body.factories[0]) {
+    return req.body.factories[0].factoryId || null;
+  }
+  return null;
+}
+
 // Logs every API call — request and response — into MongoDB.
 // Non-blocking: the log write happens after the response has already
 // been sent, so a slow/failed Mongo write never delays or breaks an
@@ -25,6 +38,7 @@ function apiLogger(req, res, next) {
 
     const logEntry = {
       timestamp: startedAt.format('YYYY-MM-DD HH:mm:ss'), // Asia/Kolkata, as a string — avoids any ambiguity about which timezone a raw Date would display as later
+      factory_id: extractFactoryId(req),
       method: req.method,
       path: req.originalUrl,
       query: req.query,

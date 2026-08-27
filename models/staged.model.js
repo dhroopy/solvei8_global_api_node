@@ -70,4 +70,31 @@ async function markSynced(unique_ids) {
   return result.modifiedCount;
 }
 
-module.exports = { connect, insertStaged, getUnsynced, markSynced };
+// "Sync logs" view — every staged record for a factory, synced or not,
+// paginated, newest first (by doa — safe to sort on since it's a
+// lexicographically-sortable 'YYYY-MM-DD HH:mm:ss' string). Distinct
+// from getUnsynced(), which the pull endpoint uses and only ever
+// returns pending ones.
+async function getSyncLogs({ factory_id, page = 1, limit = 50 }) {
+  const database = await connect();
+  const filter = {};
+  if (factory_id) filter.factory_id = factory_id;
+
+  const safePage = Math.max(parseInt(page, 10) || 1, 1);
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+  const skip = (safePage - 1) * safeLimit;
+
+  const [rows, total] = await Promise.all([
+    database.collection(COLLECTION)
+      .find(filter)
+      .sort({ doa: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .toArray(),
+    database.collection(COLLECTION).countDocuments(filter),
+  ]);
+
+  return { rows, total, page: safePage, limit: safeLimit, totalPages: Math.ceil(total / safeLimit) };
+}
+
+module.exports = { connect, insertStaged, getUnsynced, markSynced, getSyncLogs };

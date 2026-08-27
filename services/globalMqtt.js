@@ -17,11 +17,9 @@ function connect() {
   client.on('connect', () => console.log('[global] Global MQTT connected'));
   client.on('error', (err) => console.error('[global] Global MQTT error', err.message));
 
-  // Local servers can publish on LG/{factory_id} if you want a
-  // lightweight "I'm alive" or explicit ack-via-MQTT signal in future —
-  // subscribing here now so the wiring exists even though the current
-  // design does acks over HTTP, not MQTT.
-  client.subscribe(process.env.NODE_ENV == "production" ? `LG/production/+` : `LG/+`);
+  client.subscribe(`LG/${process.env.NODE_ENV}/+`);
+  client.subscribe(`Local_To_Global_Apis/production/+`);
+
   client.on('message', (topic, payload) => {
     console.log(`[global] received on ${topic}: ${payload.toString()}`);
   });
@@ -30,12 +28,39 @@ function connect() {
 }
 
 // "New data is waiting" — notification only, no payload data. The Local
-// server reacts by calling GET /global/pull itself; this message is
-// deliberately minimal.
+// server reacts by calling GET /global/pull itself.
 async function pingFactory(factory_id) {
   const c = connect();
   const topic = process.env.NODE_ENV == "production" ? `GL/production/${factory_id}` : `GL/${factory_id}`;
   c.publish(topic, JSON.stringify({ type: 'pull_ready', factory_id, ts: Date.now() }));
 }
 
-module.exports = { connect, pingFactory };
+// Triggers the Flovation container OTA update on a factory's local
+// machine — the flovation-mqtt-listener systemd service subscribes to
+// exactly this topic and, on { event: "update apis" }, runs
+// flovation.sh: stop -> remove -> pull latest image -> run.
+async function triggerFactoryUpdate(factory_id) {
+  const c = connect();
+  const topic = `Global_To_Local_Apis/${process.env.NODE_ENV}/${factory_id}`;
+  c.publish(topic, JSON.stringify({ event: 'update apis', factoryId: factory_id, ts: Date.now() }));
+}
+
+// Triggers an OTA firmware update on ONE SPECIFIC DEVICE on a factory's
+// floor. Deliberately a SEPARATE topic from triggerFactoryUpdate() above
+// — that one restarts the Local server's own Docker container (handled
+// by a bash systemd listener); this one relays a command through the
+// Local server's Node.js app (globalMqttClient.js) to a specific ESP32
+// device over ITS OWN local MQTT broker. Different concerns, different
+// topics, different listeners — kept apart on purpose.
+//
+// otaFile should be a publicly reachable HTTPS URL — the device
+// downloads directly from it via its existing startOTA() firmware code
+// (unchanged), the same way it already does for locally-hosted OTA
+// files today. No firmware changes needed.
+async function triggerDeviceOta(factory_id, device_id, otaFile) {
+  const c = connect();
+  const topic = `Global_To_Local_Device_Ota/${process.env.NODE_ENV}/${factory_id}`;
+  c.publish(topic, JSON.stringify({ event: 'device_ota', deviceId: device_id, otaFile, ts: Date.now() }));
+}
+
+module.exports = { connect, pingFactory, triggerFactoryUpdate, triggerDeviceOta };

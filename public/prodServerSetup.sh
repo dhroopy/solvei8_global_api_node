@@ -29,7 +29,7 @@ MYSQL_DOCKER_DATA_DIR="/opt/mysql"  # only used when DOCKERIZE_MYSQL="true"
 FLOVATION_ENABLED="true"
 FLOVATION_DIR=""                                     # left empty here - set below to SCRIPT_DIR/flovation, edit only if you want a different location
 FLOVATION_CONTAINER_NAME="apis"
-FLOVATION_IMAGE="9930i/solvei8_local:prod"
+FLOVATION_IMAGE="9930i/solvei8_local:production"
 FLOVATION_VIRTUAL_PORT="30119"
 FLOVATION_FORCE_REGENERATE_ENV="false"     # true = always overwrite flovation.env with the template below (use when you've edited the template and want it applied)
 
@@ -482,7 +482,7 @@ check_and_heal_container() {
 ########################################
 MQTT_LISTENER_ENABLED="true"
 MQTT_LISTENER_DIR="${SCRIPT_DIR}/mqtt-listener"
-MQTT_LISTENER_SERVICE="flovation-mqtt-listener"
+MQTT_LISTENER_SERVICE="flovation_api_update"
 
 if [[ "${MQTT_LISTENER_ENABLED}" == "true" ]]; then
     log "Setting up MQTT update listener"
@@ -552,8 +552,8 @@ function start() {
 
   client.on("connect", () => {
     console.log(`✅ MQTT listener connected (${brokerUrl})`);
-    const subTopic = `Global_To_Local_Apis/production/${process.env.FACTORY_ID}`;
-    const pubTopic = `Local_To_Global_Apis/production/${process.env.FACTORY_ID}`;
+    const subTopic = `Global_To_Local_Apis/${process.env.NODE_ENV}/${process.env.FACTORY_ID}`;
+    const pubTopic = `Local_To_Global_Apis/${process.env.NODE_ENV}/${process.env.FACTORY_ID}`;
     client.publish(pubTopic, JSON.stringify({ event: "connected", factoryId: process.env.FACTORY_ID, version: API_VERSION, status: "online" }));
     client.subscribe(subTopic, (err) => {
       if (!err) console.log(`📡 Subscribed: ${subTopic}`);

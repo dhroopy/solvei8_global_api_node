@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperManager · Global Console</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg:         #f0f2f5;
+        --surface:    #ffffff;
+        --surface2:   #f7f8fa;
+        --border:     #e2e6eb;
+        --border2:    #d0d6de;
+        --accent:     #1a3a5c;
+        --accent-lt:  #eaf0f8;
+        --accent2:    #f97316;
+        --accent2-lt: #fff7ed;
+        --green:      #16a34a;
+        --green-lt:   #f0fdf4;
+        --amber:      #d97706;
+        --amber-lt:   #fffbeb;
+        --red:        #dc2626;
+        --red-lt:     #fef2f2;
+        --purple:     #7c3aed;
+        --text:       #111827;
+        --text2:      #374151;
+        --muted:      #6b7280;
+        --muted2:     #9ca3af;
+        --shadow:     0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md:  0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+        --shadow-lg:  0 10px 30px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.06);
+        --radius:     12px;
+        --radius-sm:  8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'IBM Plex Sans', sans-serif;
+        background: var(--bg);
+        min-height: 100vh;
+        padding: 20px;
+        color: var(--text);
+    }
+
+    /* ── HEADER ── */
+    .header {
+        display: flex; align-items: center; gap: 16px;
+        margin-bottom: 18px; padding: 14px 20px;
+        background: var(--accent);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+    }
+    .header-logo {
+        width: 46px; height: 46px; flex-shrink: 0;
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px;
+    }
+    .brand { font-size: 0.78em; color: rgba(255,255,255,0.7); margin: 0 0 2px; font-weight: 500; letter-spacing: 0.3px; }
+    .header-text h1 { font-size: 1.18em; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+    .header-text p { font-size: 0.75em; color: rgba(255,255,255,0.65); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .live-badge {
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px; padding: 5px 13px;
+        font-size: 0.7em; font-weight: 600; color: #fff;
+        font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.4px;
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 1.8s infinite; }
+    .live-dot.err { background: #f87171; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.8);} }
+    .clock { font-family: 'IBM Plex Mono', monospace; font-size: 0.78em; color: rgba(255,255,255,0.75); }
+
+    /* ── SUMMARY STRIP ── */
+    .summary-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; }
+    .summary-icon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .summary-icon.blue   { background: var(--accent-lt); }
+    .summary-icon.green  { background: var(--green-lt); }
+    .summary-icon.orange { background: var(--accent2-lt); }
+    .summary-icon.purple { background: #f3f0ff; }
+    .summary-label { font-size: 0.7em; color: var(--muted); font-weight: 500; margin-bottom: 2px; }
+    .summary-value { font-size: 1.35em; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+
+    /* ── TABS ── */
+    .tabs { text-align: center; margin-bottom: 16px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .tab-btn {
+        padding: 10px 18px; background-color: #fff; border-radius: 10px; border: 1px solid var(--border);
+        font-size: 0.85em; font-weight: 600; color: var(--text2); cursor: pointer; transition: all 0.15s;
+        font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .tab-btn:hover { border-color: var(--border2); }
+    .tab-btn.active { background-color: var(--accent); color: #fff; border-color: var(--accent); box-shadow: var(--shadow); }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── FILTER SECTION ── */
+    .filter-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; box-shadow: var(--shadow); }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .filter-label { font-size: 0.67em; font-weight: 600; letter-spacing: 0.8px; color: var(--muted); text-transform: uppercase; }
+    .filter-input {
+        padding: 8px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+        color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 0.88em; font-weight: 500;
+        transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+    }
+    .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
+    .filter-buttons { display: flex; gap: 8px; align-items: flex-end; }
+    .btn {
+        padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+        font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 0.85em; cursor: pointer;
+        transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-apply { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(26,58,92,0.3); }
+    .btn-apply:hover { background: #0f2540; transform: translateY(-1px); }
+    .btn-reset { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-reset:hover { background: var(--bg); transform: translateY(-1px); }
+    .btn-danger { background: var(--red); color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
+    .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    /* ── TABLE CARD ── */
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    thead th {
+        text-align: left; padding: 11px 16px; background: var(--surface2); color: var(--muted);
+        font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72em;
+        border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    tbody td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'IBM Plex Mono', monospace; font-size: 0.92em; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr.clickable { cursor: pointer; transition: background 0.12s; }
+    tbody tr.clickable:hover td { background: var(--accent-lt); }
+    .cell-dot { display: flex; align-items: center; gap: 7px; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 0.82em; }
+
+    .badge { display: inline-block; font-size: 0.72em; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: 0.3px; font-family: 'IBM Plex Sans', sans-serif; }
+    .badge.method-GET  { background: var(--green-lt); color: var(--green); border: 1px solid #bbf7d0; }
+    .badge.method-POST { background: var(--accent2-lt); color: var(--accent2); border: 1px solid #fed7aa; }
+    .badge.dir-IN  { background: var(--green-lt); color: var(--green); border: 1px solid #bbf7d0; }
+    .badge.dir-OUT { background: var(--accent-lt); color: var(--accent); border: 1px solid #b3c8e0; }
+    .badge.status-2 { background: var(--green-lt); color: var(--green); border: 1px solid #bbf7d0; }
+    .badge.status-4, .badge.status-5 { background: var(--red-lt); color: var(--red); border: 1px solid #fecaca; }
+
+    .led { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+    .led.ok { background: var(--green); box-shadow: 0 0 0 3px var(--green-lt); }
+    .led.pending { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-lt); animation: dotpulse 1.4s infinite; }
+    .led.err { background: var(--red); box-shadow: 0 0 0 3px var(--red-lt); }
+    @keyframes dotpulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty-state .icon { font-size: 2.5em; margin-bottom: 10px; opacity: 0.4; }
+
+    /* ── PAGER ── */
+    .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 0.82em; color: var(--muted); flex-wrap: wrap; gap: 10px; }
+    .pager-readout { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 14px; font-family: 'IBM Plex Mono', monospace; box-shadow: var(--shadow); }
+    .pager-readout b { color: var(--accent); font-weight: 700; }
+    .pager-buttons { display: flex; gap: 6px; }
+
+    /* ── DEPLOY CARDS ── */
+    .deploy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+    @media (max-width: 720px) { .deploy-grid { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .card-top-bar { height: 4px; background: linear-gradient(90deg, var(--accent), #4d80b3); }
+    .card-body-pad { padding: 16px 18px; }
+    .card h3 { font-size: 1em; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .card p { font-size: 0.85em; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .card .filename { font-family: 'IBM Plex Mono', monospace; font-size: 0.78em; color: var(--muted2); margin-bottom: 12px; }
+    a.download-link {
+        display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85em;
+        color: #fff; background: var(--accent); text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm);
+        box-shadow: 0 2px 6px rgba(26,58,92,0.3); transition: all 0.15s;
+    }
+    a.download-link:hover { background: #0f2540; transform: translateY(-1px); }
+
+    .ota-warning {
+        display: flex; gap: 10px; background: var(--red-lt); border: 1px solid #fecaca; border-radius: var(--radius-sm);
+        padding: 12px 14px; font-size: 0.82em; color: #991b1b; line-height: 1.5; margin-bottom: 16px;
+    }
+    .ota-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .ota-feedback { margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 0.82em; color: var(--muted); display: none; align-items: center; gap: 8px; }
+    .ota-feedback.show { display: flex; }
+
+    /* ── MODAL ── */
+    .modal { display: none; position: fixed; z-index: 1000; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px); }
+    .modal.active { display: flex; justify-content: center; align-items: flex-start; padding: 60px 16px; overflow-y: auto; }
+    .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0; max-width: 680px; width: 100%; max-height: 82vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); animation: fadeUp 0.2s ease; }
+    @keyframes fadeUp { from{transform:translateY(20px);opacity:0;} to{transform:none;opacity:1;} }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--accent); border-radius: 14px 14px 0 0; }
+    .modal-title { font-size: 0.95em; font-weight: 700; color: #fff; font-family: 'IBM Plex Mono', monospace; }
+    .close-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 15px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .close-btn:hover { background: rgba(255,255,255,0.25); }
+    .modal-body { overflow-y: auto; padding: 16px 18px; flex: 1; }
+
+    .json-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; }
+    .json-section:last-child { margin-bottom: 0; }
+    .json-section-label { padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 0.68em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted2); }
+    .json-block { padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 0.82em; line-height: 1.6; color: var(--text2); white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+
+    .modal-simple-body { padding: 18px; }
+    .modal-simple-body p { font-size: 0.88em; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+    .modal-simple-body p b { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 0 18px 18px; }
+
+    .truncate { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    @media (max-width: 768px) {
+        body { padding: 10px; }
+        .header { flex-wrap: wrap; }
+        .summary-strip { grid-template-columns: 1fr 1fr; }
+        .filter-group { flex-direction: column; align-items: stretch; }
+    }
+    @media (prefers-reduced-motion: reduce) { .led.pending, .live-dot { animation: none; } }
+</style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-logo">🛰️</div>
+        <div class="header-text">
+            <div class="brand">SuperManager · Global</div>
+            <h1>Global Console</h1>
+            <p>API Traffic, Sync Status &amp; Device Monitoring — All Factories</p>
+        </div>
+        <div class="header-right">
+            <span class="clock" id="clock">--:--:--</span>
+            <div class="live-badge">
+                <div class="live-dot" id="connDot"></div>
+                <span id="connLabel">CHECKING</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-strip" id="summaryStrip">
+        <div class="summary-card">
+            <div class="summary-icon blue">📡</div>
+            <div><div class="summary-label">API Calls Logged</div><div class="summary-value" id="sumApi">—</div></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon orange">🔄</div>
+            <div><div class="summary-label">Staged Sync Records</div><div class="summary-value" id="sumSync">—</div></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon purple">📶</div>
+            <div><div class="summary-label">Device MQTT Entries</div><div class="summary-value" id="sumDevice">—</div></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon green">🏭</div>
+            <div><div class="summary-label">Filtered By</div><div class="summary-value" id="sumFactory" style="font-size:0.7em;">All Factories</div></div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="api" onclick="switchTab('api')">📡 API Triggers</button>
+        <button class="tab-btn" data-tab="sync" onclick="switchTab('sync')">🔄 Sync Log</button>
+        <button class="tab-btn" data-tab="device" onclick="switchTab('device')">📶 Device MQTT</button>
+        <button class="tab-btn" data-tab="devices" onclick="switchTab('devices')">🔧 Devices</button>
+        <button class="tab-btn" data-tab="env" onclick="switchTab('env')">🌱 Env</button>
+        <button class="tab-btn" data-tab="deploy" onclick="switchTab('deploy')">🚀 Deploy</button>
+    </div>
+
+    <!-- ============ API TRIGGERS ============ -->
+    <div class="panel active" id="panel-api">
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="api-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadApiLogs(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('api-factory').value='';loadApiLogs(1)">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Time</th><th>Factory</th><th>Method</th><th>Path</th><th>Status</th><th>Duration</th></tr></thead>
+                <tbody id="api-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="api-empty" style="display:none;"><div class="icon">📡</div>No API calls logged yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="api-page">1</b> / <span id="api-totalpages">1</span> — <span id="api-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="apiPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="apiNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ SYNC LOG ============ -->
+    <div class="panel" id="panel-sync">
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="sync-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadSyncLogs(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('sync-factory').value='';loadSyncLogs(1)">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Status</th><th>Factory</th><th>Endpoint</th><th>Unique ID</th><th>Staged</th><th>Synced</th></tr></thead>
+                <tbody id="sync-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="sync-empty" style="display:none;"><div class="icon">🔄</div>No staged records yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="sync-page">1</b> / <span id="sync-totalpages">1</span> — <span id="sync-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="syncPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="syncNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ DEVICE MQTT ============ -->
+    <div class="panel" id="panel-device">
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="device-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">Device ID</label>
+                    <input type="text" id="device-id" class="filter-input" placeholder="16" style="min-width:100px;">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadDeviceLogs(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('device-factory').value='';document.getElementById('device-id').value='';loadDeviceLogs(1)">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Dir</th><th>Factory</th><th>Device</th><th>Type</th><th>Topic</th><th>Payload</th><th>Time</th></tr></thead>
+                <tbody id="device-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="device-empty" style="display:none;"><div class="icon">📶</div>No device logs forwarded yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="device-page">1</b> / <span id="device-totalpages">1</span> — <span id="device-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="devicePrev()">&larr; Prev</button><button class="btn btn-reset" onclick="deviceNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ DEVICES (registry + OTA) ============ -->
+    <div class="panel" id="panel-devices">
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="devices-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadDevices(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('devices-factory').value='';loadDevices(1)">↺ Reset</button>
+                    <button class="btn btn-danger" onclick="openBatchOtaConfirm()">🚀 Batch OTA (filtered factory)</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Factory</th><th>Device</th><th>MAC</th><th>FW Version</th><th>Last Msg Type</th><th>Last Msg At</th><th></th></tr></thead>
+                <tbody id="devices-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="devices-empty" style="display:none;"><div class="icon">🔧</div>No devices seen yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="devices-page">1</b> / <span id="devices-totalpages">1</span> — <span id="devices-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="devicesPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="devicesNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ ENV (per-factory config snapshots) ============ -->
+    <div class="panel" id="panel-env">
+        <div class="ota-warning" style="margin-bottom:16px;">🔒 Secrets (anything matching PASS, KEY, TOKEN, SECRET, PWD, CREDENTIAL) are redacted before this ever leaves each factory's local machine — you're seeing real config values here, never real passwords or keys.</div>
+        <div class="filter-section">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">Factory ID</label>
+                    <input type="text" id="env-factory" class="filter-input" placeholder="bgd-ana-app">
+                </div>
+                <div class="filter-buttons">
+                    <button class="btn btn-apply" onclick="loadEnvSnapshots(1)">🔍 Apply</button>
+                    <button class="btn btn-reset" onclick="document.getElementById('env-factory').value='';loadEnvSnapshots(1)">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <table>
+                <thead><tr><th>Factory</th><th>Vars Reported</th><th>Last Reported</th><th>First Seen</th></tr></thead>
+                <tbody id="env-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="env-empty" style="display:none;"><div class="icon">🌱</div>No env snapshots reported yet.</div>
+        </div>
+        <div class="pager">
+            <div class="pager-readout">PAGE <b id="env-page">1</b> / <span id="env-totalpages">1</span> — <span id="env-total">0</span> ENTRIES</div>
+            <div class="pager-buttons"><button class="btn btn-reset" onclick="envPrev()">&larr; Prev</button><button class="btn btn-reset" onclick="envNext()">Next &rarr;</button></div>
+        </div>
+    </div>
+
+    <!-- ============ DEPLOY ============ -->
+    <div class="panel" id="panel-deploy">
+
+        <div class="deploy-grid">
+            <div class="card">
+                <div class="card-top-bar"></div>
+                <div class="card-body-pad">
+                    <h3>⚙️ Local machine setup</h3>
+                    <p>Provisions Docker, Mosquitto, MySQL, Node, and the Flovation API container on a factory's local machine. Includes the MQTT listener that makes remote OTA updates possible.</p>
+                    <div class="filename">localServerSetup.sh</div>
+                    <a class="download-link" href="/localServerSetup.sh" download>⬇ Download Script</a>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-top-bar"></div>
+                <div class="card-body-pad">
+                    <h3>🏭 Production machine setup</h3>
+                    <p>Same provisioning flow, configured with production defaults — Mosquitto credentials, database name, and the live SolveI8 endpoint.</p>
+                    <div class="filename">prodServerSetup.sh</div>
+                    <a class="download-link" href="/prodServerSetup.sh" download>⬇ Download Script</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-top-bar" style="background: linear-gradient(90deg, var(--red), #f87171);"></div>
+            <div class="card-body-pad">
+                <h3>🔁 Push update to a factory's local machine</h3>
+                <p style="margin-bottom:16px;">Sends an "update apis" event over MQTT — the factory's flovation-mqtt-listener service will stop, remove, pull the latest image, and restart its API container.</p>
+                <div class="ota-warning">⚠️ This restarts live production infrastructure on the factory floor. The local API container will be briefly unavailable during the restart. Confirm the factory ID carefully before pushing.</div>
+                <div class="ota-row">
+                    <div class="filter-item">
+                        <label class="filter-label">Factory ID</label>
+                        <input type="text" id="ota-factory" class="filter-input" placeholder="bgd-ana-app">
+                    </div>
+                    <button class="btn btn-danger" onclick="openOtaConfirm()">🚀 Push Update</button>
+                </div>
+                <div class="ota-feedback" id="ota-feedback">
+                    <span class="led" id="ota-led"></span>
+                    <span id="ota-feedback-text"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON viewer modal -->
+    <div class="modal" id="jsonModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="jsonModalTitle">Details</div>
+                <button class="close-btn" onclick="closeJsonModal()">✕</button>
+            </div>
+            <div class="modal-body" id="jsonModalBody"></div>
+        </div>
+    </div>
+
+    <!-- OTA confirm modal -->
+    <div class="modal" id="otaModal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header" style="background: var(--red);">
+                <div class="modal-title">Confirm production restart</div>
+                <button class="close-btn" onclick="closeOtaConfirm()">✕</button>
+            </div>
+            <div class="modal-simple-body">
+                <p>This will restart the local API container on factory <b id="otaModalFactory"></b>. Devices on this factory's floor may briefly lose connectivity during the restart.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" onclick="closeOtaConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmOta()">Confirm &amp; Push</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device OTA confirm modal -->
+    <div class="modal" id="deviceOtaModal">
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header" style="background: var(--red);">
+                <div class="modal-title">Push firmware to device</div>
+                <button class="close-btn" onclick="closeDeviceOtaConfirm()">✕</button>
+            </div>
+            <div class="modal-simple-body">
+                <p>Factory <b id="deviceOtaFactory"></b> · Device <b id="deviceOtaDeviceId"></b></p>
+                <div class="filter-item" style="width:100%; margin-bottom: 4px;">
+                    <label class="filter-label">Firmware URL (otaFile)</label>
+                    <input type="text" id="deviceOtaUrl" class="filter-input" style="width:100%;" placeholder="https://your-global-domain/firmware/v4.1.17.bin">
+                </div>
+                <p style="margin-top:14px; margin-bottom:0;">The device will download this file directly and restart once the update completes. Make sure the URL is publicly reachable — the device cannot see your local network.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" onclick="closeDeviceOtaConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeviceOta()">Confirm &amp; Push</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch device OTA confirm modal -->
+    <div class="modal" id="batchOtaModal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header" style="background: var(--red);">
+                <div class="modal-title">Push firmware to multiple devices</div>
+                <button class="close-btn" onclick="closeBatchOtaConfirm()">✕</button>
+            </div>
+            <div class="modal-simple-body">
+                <p>Factory <b id="batchOtaFactory"></b> — <b id="batchOtaCount"></b> device(s) currently registered.</p>
+                <div class="ota-warning" style="margin-bottom:16px;">⚠️ This pushes the SAME firmware file to every device shown above, all at once. Double-check the URL and the factory before confirming — this cannot be undone once sent.</div>
+                <div class="filter-item" style="width:100%; margin-bottom: 4px;">
+                    <label class="filter-label">Firmware URL (otaFile)</label>
+                    <input type="text" id="batchOtaUrl" class="filter-input" style="width:100%;" placeholder="https://your-global-domain/firmware/v4.1.17.bin">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" onclick="closeBatchOtaConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmBatchOta()">Confirm &amp; Push to All</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    function tickClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false }); }
+    setInterval(tickClock, 1000);
+    tickClock();
+
+    async function checkHealth() {
+        const dot = document.getElementById('connDot');
+        const label = document.getElementById('connLabel');
+        try {
+            const res = await fetch('/health');
+            if (res.ok) { dot.className = 'live-dot'; label.textContent = 'CONNECTED'; }
+            else throw new Error('bad status');
+        } catch (e) { dot.className = 'live-dot err'; label.textContent = 'UNREACHABLE'; }
+    }
+    checkHealth();
+    setInterval(checkHealth, 15000);
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+        document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function truncatePayload(val) {
+        const str = typeof val === 'string' ? val : JSON.stringify(val);
+        if (!str) return '';
+        return str.length > 60 ? str.slice(0, 57) + '...' : str;
+    }
+
+    let apiPage = 1;
+    let apiRowsData = [];
+    async function loadApiLogs(page) {
+        apiPage = page;
+        const factory = document.getElementById('api-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/logs/api-triggers?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        apiRowsData = data.rows;
+        const tbody = document.getElementById('api-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('api-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r, i) => {
+            const statusClass = 'status-' + String(r.statusCode).charAt(0);
+            const methodClass = 'method-' + (r.method || 'GET');
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openApiLogModal(i);
+            tr.innerHTML = '<td>' + escapeHtml(r.timestamp) + '</td>' +
+                '<td>' + (escapeHtml(r.factory_id) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td><span class="badge ' + methodClass + '">' + escapeHtml(r.method) + '</span></td>' +
+                '<td class="truncate">' + escapeHtml(r.path) + '</td>' +
+                '<td><span class="badge ' + statusClass + '">' + escapeHtml(r.statusCode) + '</span></td>' +
+                '<td>' + escapeHtml(r.durationMs) + 'ms</td>';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('api-page').textContent = data.page;
+        document.getElementById('api-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('api-total').textContent = data.total;
+        document.getElementById('sumApi').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+
+    function openApiLogModal(index) {
+        const r = apiRowsData[index];
+        if (!r) return;
+        const sections = [
+            { label: 'Request', content: { method: r.method, path: r.path, query: r.query, factory_id: r.factory_id, ip: r.ip } },
+            { label: 'Body', content: r.body },
+            { label: 'Response', content: { statusCode: r.statusCode, durationMs: r.durationMs, body: r.responseBody } },
+        ];
+        openJsonModal(r.method + ' ' + r.path, sections);
+    }
+    function apiPrev() { if (apiPage > 1) loadApiLogs(apiPage - 1); }
+    function apiNext() { loadApiLogs(apiPage + 1); }
+
+    let syncPage = 1;
+    let syncRowsData = [];
+    async function loadSyncLogs(page) {
+        syncPage = page;
+        const factory = document.getElementById('sync-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/logs/sync?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        syncRowsData = data.rows;
+        const tbody = document.getElementById('sync-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('sync-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r, i) => {
+            const synced = !!r.last_sync;
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openSyncLogModal(i);
+            tr.innerHTML = '<td class="cell-dot"><span class="led ' + (synced ? 'ok' : 'pending') + '"></span> ' + (synced ? 'SYNCED' : 'PENDING') + '</td>' +
+                '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + escapeHtml(r.endpoint) + '</td>' +
+                '<td class="truncate">' + escapeHtml(r.unique_id) + '</td>' +
+                '<td>' + escapeHtml(r.doa) + '</td>' +
+                '<td>' + (escapeHtml(r.last_sync) || '<span style="color:var(--muted2)">—</span>') + '</td>';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('sync-page').textContent = data.page;
+        document.getElementById('sync-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('sync-total').textContent = data.total;
+        document.getElementById('sumSync').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+
+    function openSyncLogModal(index) {
+        const r = syncRowsData[index];
+        if (!r) return;
+        const sections = [
+            { label: 'Record', content: { unique_id: r.unique_id, factory_id: r.factory_id, endpoint: r.endpoint, doa: r.doa, last_sync: r.last_sync } },
+            { label: 'Data', content: r.data },
+        ];
+        openJsonModal(r.endpoint + ' — ' + r.unique_id, sections);
+    }
+    function syncPrev() { if (syncPage > 1) loadSyncLogs(syncPage - 1); }
+    function syncNext() { loadSyncLogs(syncPage + 1); }
+
+    let devicePage = 1;
+    async function loadDeviceLogs(page) {
+        devicePage = page;
+        const factory = document.getElementById('device-factory').value.trim();
+        const deviceId = document.getElementById('device-id').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        if (deviceId) params.set('device_id', deviceId);
+        const res = await fetch('/logs/device-mqtt?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        const tbody = document.getElementById('device-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('device-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r) => {
+            const dirClass = 'dir-' + (r.direction || 'OUT');
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td><span class="badge ' + dirClass + '">' + escapeHtml(r.direction) + '</span></td>' +
+                '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + escapeHtml(r.device_id) + '</td>' +
+                '<td>' + (escapeHtml(r.msg_type) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td class="truncate">' + escapeHtml(r.topic) + '</td>' +
+                '<td class="truncate" title="' + escapeHtml(typeof r.payload === 'string' ? r.payload : JSON.stringify(r.payload)) + '">' + escapeHtml(truncatePayload(r.payload)) + '</td>' +
+                '<td>' + escapeHtml(r.created_at) + '</td>';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('device-page').textContent = data.page;
+        document.getElementById('device-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('device-total').textContent = data.total;
+        document.getElementById('sumDevice').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+    function devicePrev() { if (devicePage > 1) loadDeviceLogs(devicePage - 1); }
+    function deviceNext() { loadDeviceLogs(devicePage + 1); }
+
+    // ---------- DEVICES tab (registry + OTA trigger) ----------
+    let devicesPage = 1;
+    async function loadDevices(page) {
+        devicesPage = page;
+        const factory = document.getElementById('devices-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/devices?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        const tbody = document.getElementById('devices-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('devices-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r) => {
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openLastMsgModal(r);
+            tr.innerHTML = '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + escapeHtml(r.device_id) + '</td>' +
+                '<td>' + (escapeHtml(r.mac) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + (escapeHtml(r.fw_version) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + (escapeHtml(r.last_msg_type) || '<span style="color:var(--muted2)">—</span>') + '</td>' +
+                '<td>' + escapeHtml(r.last_msg_at) + '</td>' +
+                '<td><button class="btn btn-danger" style="padding:5px 12px; font-size:0.78em;">🚀 OTA</button></td>';
+            const otaBtn = tr.querySelector('td:last-child button');
+            otaBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // don't also trigger the row's own click (last-message viewer)
+                openDeviceOtaConfirm(r.factory_id, r.device_id);
+            });
+            tbody.appendChild(tr);
+        });
+        document.getElementById('devices-page').textContent = data.page;
+        document.getElementById('devices-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('devices-total').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+    function devicesPrev() { if (devicesPage > 1) loadDevices(devicesPage - 1); }
+    function devicesNext() { loadDevices(devicesPage + 1); }
+
+    // ---------- ENV tab (per-factory config snapshots) ----------
+    let envPage = 1;
+    let envRowsData = [];
+    async function loadEnvSnapshots(page) {
+        envPage = page;
+        const factory = document.getElementById('env-factory').value.trim();
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (factory) params.set('factory_id', factory);
+        const res = await fetch('/logs/env?' + params.toString());
+        const json = await res.json();
+        const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        envRowsData = data.rows;
+        const tbody = document.getElementById('env-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('env-empty').style.display = data.rows.length ? 'none' : 'block';
+        data.rows.forEach((r, i) => {
+            const varCount = r.env ? Object.keys(r.env).length : 0;
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openEnvModal(i);
+            tr.innerHTML = '<td>' + escapeHtml(r.factory_id) + '</td>' +
+                '<td>' + varCount + '</td>' +
+                '<td>' + escapeHtml(r.updated_at) + '</td>' +
+                '<td>' + escapeHtml(r.first_reported_at) + '</td>';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('env-page').textContent = data.page;
+        document.getElementById('env-totalpages').textContent = data.totalPages || 1;
+        document.getElementById('env-total').textContent = data.total;
+        updateFactorySummary(factory);
+    }
+    function envPrev() { if (envPage > 1) loadEnvSnapshots(envPage - 1); }
+    function envNext() { loadEnvSnapshots(envPage + 1); }
+
+    function openEnvModal(index) {
+        const r = envRowsData[index];
+        if (!r) return;
+        const sections = [
+            { label: 'Reported', content: { factory_id: r.factory_id, updated_at: r.updated_at, first_reported_at: r.first_reported_at } },
+            { label: 'Environment (secrets redacted)', content: r.env },
+        ];
+        openJsonModal('Env — ' + r.factory_id, sections);
+    }
+
+    // Row click opens the last-message viewer (same JSON modal pattern as
+    // API Triggers/Sync Log); the OTA button is a separate action with
+    // its click stopped from bubbling into the row handler.
+    function openLastMsgModal(r) {
+        const sections = [
+            { label: 'Device', content: { factory_id: r.factory_id, device_id: r.device_id, mac: r.mac, fw_version: r.fw_version } },
+            { label: 'Last Message (' + (r.last_msg_direction || '') + ' · ' + (r.last_msg_type || 'unknown') + ')', content: (() => { try { return JSON.parse(r.last_msg); } catch (e) { return r.last_msg; } })() },
+        ];
+        openJsonModal('Device ' + r.device_id + ' — last message', sections);
+    }
+
+    function openDeviceOtaConfirm(factory_id, device_id) {
+        document.getElementById('deviceOtaFactory').textContent = factory_id;
+        document.getElementById('deviceOtaDeviceId').textContent = device_id;
+        document.getElementById('deviceOtaUrl').value = '';
+        document.getElementById('deviceOtaModal').dataset.factory = factory_id;
+        document.getElementById('deviceOtaModal').dataset.device = device_id;
+        document.getElementById('deviceOtaModal').classList.add('active');
+    }
+    function closeDeviceOtaConfirm() { document.getElementById('deviceOtaModal').classList.remove('active'); }
+    document.getElementById('deviceOtaModal').addEventListener('click', (e) => { if (e.target.id === 'deviceOtaModal') closeDeviceOtaConfirm(); });
+
+    async function confirmDeviceOta() {
+        const modal = document.getElementById('deviceOtaModal');
+        const factory_id = modal.dataset.factory;
+        const device_id = modal.dataset.device;
+        const otaFile = document.getElementById('deviceOtaUrl').value.trim();
+        if (!otaFile || !/^https?:\/\//i.test(otaFile)) {
+            alert('Enter a full http(s) firmware URL first.');
+            return;
+        }
+        closeDeviceOtaConfirm();
+        try {
+            const res = await fetch('/global/trigger-device-ota', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ factory_id, device_id, otaFile }),
+            });
+            const json = await res.json();
+            if (res.ok && json.data && json.data.triggered) {
+                alert('OTA command sent to device ' + device_id + ' on ' + factory_id + '.');
+            } else {
+                throw new Error(json.error || 'Unknown error');
+            }
+        } catch (e) {
+            alert('Failed to trigger device OTA: ' + e.message);
+        }
+    }
+
+    // ---------- Batch OTA (all devices in the filtered factory) ----------
+    async function openBatchOtaConfirm() {
+        const factory_id = document.getElementById('devices-factory').value.trim();
+        if (!factory_id) {
+            alert('Enter a Factory ID in the filter above first — batch OTA always targets exactly one factory, never all of them at once.');
+            return;
+        }
+        // Fetch just the count (limit=1 keeps this cheap — total comes
+        // back regardless of how many rows are actually returned).
+        const res = await fetch('/devices?' + new URLSearchParams({ factory_id, page: 1, limit: 1 }).toString());
+        const json = await res.json();
+        const total = json.data ? json.data.total : 0;
+        if (!total) {
+            alert('No devices registered for factory ' + factory_id + ' yet.');
+            return;
+        }
+        document.getElementById('batchOtaFactory').textContent = factory_id;
+        document.getElementById('batchOtaCount').textContent = total;
+        document.getElementById('batchOtaUrl').value = '';
+        document.getElementById('batchOtaModal').dataset.factory = factory_id;
+        document.getElementById('batchOtaModal').classList.add('active');
+    }
+    function closeBatchOtaConfirm() { document.getElementById('batchOtaModal').classList.remove('active'); }
+    document.getElementById('batchOtaModal').addEventListener('click', (e) => { if (e.target.id === 'batchOtaModal') closeBatchOtaConfirm(); });
+
+    async function confirmBatchOta() {
+        const factory_id = document.getElementById('batchOtaModal').dataset.factory;
+        const otaFile = document.getElementById('batchOtaUrl').value.trim();
+        if (!otaFile || !/^https?:\/\//i.test(otaFile)) {
+            alert('Enter a full http(s) firmware URL first.');
+            return;
+        }
+        closeBatchOtaConfirm();
+        try {
+            const res = await fetch('/global/trigger-device-ota-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ factory_id, otaFile }),
+            });
+            const json = await res.json();
+            if (res.ok && json.data && json.data.triggered) {
+                alert('OTA command sent to ' + json.data.deviceCount + ' device(s) on ' + factory_id + '.');
+            } else {
+                throw new Error(json.error || 'Unknown error');
+            }
+        } catch (e) {
+            alert('Failed to trigger batch OTA: ' + e.message);
+        }
+    }
+
+    function updateFactorySummary(factory) {
+        document.getElementById('sumFactory').textContent = factory || 'All Factories';
+    }
+
+    function openJsonModal(title, sections) {
+        document.getElementById('jsonModalTitle').textContent = title;
+        const body = document.getElementById('jsonModalBody');
+        body.innerHTML = '';
+        sections.forEach((s) => {
+            const hasContent = s.content !== undefined && s.content !== null && !(typeof s.content === 'object' && Object.keys(s.content).length === 0);
+            const wrap = document.createElement('div');
+            wrap.className = 'json-section';
+            const label = document.createElement('div');
+            label.className = 'json-section-label';
+            label.textContent = s.label;
+            wrap.appendChild(label);
+            const block = document.createElement('div');
+            block.className = 'json-block';
+            block.textContent = hasContent ? JSON.stringify(s.content, null, 2) : '(empty)';
+            wrap.appendChild(block);
+            body.appendChild(wrap);
+        });
+        document.getElementById('jsonModal').classList.add('active');
+    }
+    function closeJsonModal() { document.getElementById('jsonModal').classList.remove('active'); }
+    document.getElementById('jsonModal').addEventListener('click', (e) => { if (e.target.id === 'jsonModal') closeJsonModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeJsonModal(); closeOtaConfirm(); closeDeviceOtaConfirm(); closeBatchOtaConfirm(); } });
+
+    function openOtaConfirm() {
+        const factory = document.getElementById('ota-factory').value.trim();
+        if (!factory) { alert('Enter a factory ID first.'); return; }
+        document.getElementById('otaModalFactory').textContent = factory;
+        document.getElementById('otaModal').classList.add('active');
+    }
+    function closeOtaConfirm() { document.getElementById('otaModal').classList.remove('active'); }
+    document.getElementById('otaModal').addEventListener('click', (e) => { if (e.target.id === 'otaModal') closeOtaConfirm(); });
+
+    async function confirmOta() {
+        closeOtaConfirm();
+        const factory = document.getElementById('ota-factory').value.trim();
+        const feedback = document.getElementById('ota-feedback');
+        const led = document.getElementById('ota-led');
+        const text = document.getElementById('ota-feedback-text');
+        feedback.classList.add('show');
+        led.className = 'led pending';
+        text.textContent = 'Sending update trigger to ' + factory + '...';
+        try {
+            const res = await fetch('/global/trigger-ota', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ factory_id: factory }),
+            });
+            const json = await res.json();
+            if (res.ok && json.data && json.data.otaTriggered) {
+                led.className = 'led ok';
+                text.textContent = 'Update triggered for ' + factory + ' — the local container will restart shortly.';
+            } else {
+                throw new Error(json.error || 'Unknown error');
+            }
+        } catch (e) {
+            led.className = 'led err';
+            text.textContent = 'Failed to trigger update: ' + e.message;
+        }
+    }
+
+    loadApiLogs(1);
+    loadSyncLogs(1);
+    loadDeviceLogs(1);
+    loadDevices(1);
+    loadEnvSnapshots(1);
+</script>
+</body>
+</html>
