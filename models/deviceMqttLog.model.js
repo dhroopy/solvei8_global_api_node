@@ -19,27 +19,22 @@ async function connect() {
   return db;
 }
 
-// One row per device IN/OUT message, forwarded up from a Local server's
-// own mqtt_debug_log table — same shape as that table, plus factory_id
-// so entries from different factories don't mix.
 async function insertLog({ factory_id, device_id, direction, topic, msg_type, payload, created_at }) {
   const database = await connect();
   const doc = {
     factory_id,
     device_id,
-    direction, // 'IN' | 'OUT'
+    direction,
     topic,
     msg_type: msg_type || null,
     payload,
     created_at: created_at || moment().tz(LOG_TZ).format('YYYY-MM-DD HH:mm:ss.SSS'),
-    received_at: moment().tz(LOG_TZ).format('YYYY-MM-DD HH:mm:ss'), // when the GLOBAL server actually got this forwarded entry
+    received_at: moment().tz(LOG_TZ).format('YYYY-MM-DD HH:mm:ss'),
   };
   await database.collection(COLLECTION).insertOne(doc);
   return doc;
 }
 
-// Bulk insert — Local servers will likely batch-forward many rows at
-// once rather than one HTTP call per MQTT message.
 async function insertLogsBulk(entries) {
   if (!entries || !entries.length) return { inserted: 0 };
   const database = await connect();
@@ -58,12 +53,19 @@ async function insertLogsBulk(entries) {
   return { inserted: result.insertedCount };
 }
 
-async function getLogs({ factory_id, device_id, direction, page = 1, limit = 50 }) {
+// factory_id, device_id, direction - exact match
+// startDate/endDate                - filters on created_at
+async function getLogs({ factory_id, device_id, direction, startDate, endDate, page = 1, limit = 50 }) {
   const database = await connect();
   const filter = {};
   if (factory_id) filter.factory_id = factory_id;
   if (device_id) filter.device_id = device_id;
   if (direction) filter.direction = direction;
+  if (startDate || endDate) {
+    filter.created_at = {};
+    if (startDate) filter.created_at.$gte = `${startDate} 00:00:00`;
+    if (endDate) filter.created_at.$lte = `${endDate} 23:59:59.999`;
+  }
 
   const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);

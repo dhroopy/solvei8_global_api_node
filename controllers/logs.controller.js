@@ -5,34 +5,26 @@ const deviceRegistryModel = require('../models/deviceRegistry.model');
 const envRegistryModel = require('../models/envRegistry.model');
 const { asyncHandler, ok, created, badRequest } = require('../utils/response');
 
-// GET /logs/api-triggers?factory_id=X&page=1&limit=50
+// GET /logs/api-triggers?factory_id=X&path=Y&search=Z&startDate=&endDate=&page=1&limit=50
 const getApiTriggerLogs = asyncHandler(async (req, res) => {
-  const { factory_id, page, limit } = req.query;
-  const result = await apiLogModel.getLogs({ factory_id, page, limit });
+  const { factory_id, path, search, startDate, endDate, page, limit } = req.query;
+  const result = await apiLogModel.getLogs({ factory_id, path, search, startDate, endDate, page, limit });
   return ok(res, result);
 });
 
-// GET /logs/sync?factory_id=X&page=1&limit=50
+// GET /logs/sync?factory_id=X&endpoint=Y&startDate=&endDate=&page=1&limit=50
 const getSyncLogs = asyncHandler(async (req, res) => {
-  const { factory_id, page, limit } = req.query;
-  const result = await stagedModel.getSyncLogs({ factory_id, page, limit });
+  const { factory_id, endpoint, startDate, endDate, page, limit } = req.query;
+  const result = await stagedModel.getSyncLogs({ factory_id, endpoint, startDate, endDate, page, limit });
   return ok(res, result);
 });
 
-// Best-effort registry update — never let a registry write failure
-// break the actual log ingest, which is the thing that must not fail.
 function updateRegistrySafely(entry) {
   deviceRegistryModel.recordFromLog(entry).catch((err) => {
     console.error('[device-registry] failed to update from log:', err.message);
   });
 }
 
-// POST /logs/device-mqtt
-// Local servers forward their own mqtt_debug_log rows here, tagged with
-// factory_id. Accepts either a single log object or { logs: [...] } for
-// bulk forwarding. Every entry also updates device_registry (mac,
-// fw_version, last message, last message time) — same write, two
-// purposes.
 const ingestDeviceMqttLog = asyncHandler(async (req, res) => {
   const { factory_id, logs } = req.body;
 
@@ -53,25 +45,20 @@ const ingestDeviceMqttLog = asyncHandler(async (req, res) => {
   return created(res, doc);
 });
 
-// GET /logs/device-mqtt?factory_id=X&device_id=Y&direction=IN&page=1&limit=50
+// GET /logs/device-mqtt?factory_id=X&device_id=Y&direction=IN&startDate=&endDate=&page=1&limit=50
 const getDeviceMqttLogs = asyncHandler(async (req, res) => {
-  const { factory_id, device_id, direction, page, limit } = req.query;
-  const result = await deviceMqttLogModel.getLogs({ factory_id, device_id, direction, page, limit });
+  const { factory_id, device_id, direction, startDate, endDate, page, limit } = req.query;
+  const result = await deviceMqttLogModel.getLogs({ factory_id, device_id, direction, startDate, endDate, page, limit });
   return ok(res, result);
 });
 
-// GET /devices?factory_id=X&page=1&limit=50
+// GET /devices?factory_id=X&startDate=&endDate=&page=1&limit=50
 const getDevices = asyncHandler(async (req, res) => {
-  const { factory_id, page, limit } = req.query;
-  const result = await deviceRegistryModel.getDevices({ factory_id, page, limit });
+  const { factory_id, startDate, endDate, page, limit } = req.query;
+  const result = await deviceRegistryModel.getDevices({ factory_id, startDate, endDate, page, limit });
   return ok(res, result);
 });
 
-// Same redaction pattern as the Local server's envReporter.js — applied
-// AGAIN here as a backstop. The Local side should already redact before
-// sending, but if an older Local server (without that update) or
-// anything else posts here directly, secrets still never get stored,
-// not just never displayed.
 const ENV_SENSITIVE_PATTERN = /PASS|PWD|SECRET|KEY|TOKEN|CREDENTIAL/i;
 function redactEnvServerSide(env) {
   const redacted = {};
@@ -81,9 +68,6 @@ function redactEnvServerSide(env) {
   return redacted;
 }
 
-// POST /logs/env — Body: { factory_id, env: {...} }
-// One snapshot per factory, overwritten on every report (a Local server
-// reports this once on every startup — see envReporter.js).
 const ingestEnv = asyncHandler(async (req, res) => {
   const { factory_id, env } = req.body;
   if (!factory_id) return badRequest(res, 'factory_id is required');
@@ -93,10 +77,10 @@ const ingestEnv = asyncHandler(async (req, res) => {
   return created(res, { factory_id, stored: true });
 });
 
-// GET /logs/env?factory_id=X&page=1&limit=50
+// GET /logs/env?factory_id=X&startDate=&endDate=&page=1&limit=50
 const getEnvSnapshots = asyncHandler(async (req, res) => {
-  const { factory_id, page, limit } = req.query;
-  const result = await envRegistryModel.getEnvSnapshots({ factory_id, page, limit });
+  const { factory_id, startDate, endDate, page, limit } = req.query;
+  const result = await envRegistryModel.getEnvSnapshots({ factory_id, startDate, endDate, page, limit });
   return ok(res, result);
 });
 

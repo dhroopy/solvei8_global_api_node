@@ -103,7 +103,7 @@
     .filter-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
     .filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
     .filter-label { font-size: 0.67em; font-weight: 600; letter-spacing: 0.8px; color: var(--muted); text-transform: uppercase; }
-    .filter-input {
+    .filter-input, select.filter-input {
         padding: 8px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
         color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 0.88em; font-weight: 500;
         transition: border-color 0.15s, box-shadow 0.15s; outline: none;
@@ -122,6 +122,7 @@
     .btn-danger { background: var(--red); color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
     .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+    .filter-more-toggle { font-size: 0.78em; color: var(--accent); font-weight: 600; cursor: pointer; background: none; border: none; padding: 4px 0; text-decoration: underline; }
 
     /* ── TABLE CARD ── */
     .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
@@ -270,9 +271,42 @@
                     <label class="filter-label">Factory ID</label>
                     <input type="text" id="api-factory" class="filter-input" placeholder="bgd-ana-app">
                 </div>
+                <div class="filter-item">
+                    <label class="filter-label">API</label>
+                    <select id="api-path" class="filter-input">
+                        <option value="all">All SolveI8 APIs</option>
+                        <option value="/ext/api/v1/operationBreakdown">Operation Breakdown</option>
+                        <option value="/ext/api/v1/lineSetup">Line Setup</option>
+                        <option value="/ext/api/v1/tagMapping">Tag Mapping</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">Tag ID</label>
+                    <input type="text" id="api-tagid" class="filter-input" placeholder="tagMapping only">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">RFID</label>
+                    <input type="text" id="api-rfid" class="filter-input" placeholder="tagMapping only">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">OB ID</label>
+                    <input type="text" id="api-obid" class="filter-input" placeholder="operationBreakdown only">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">Device ID</label>
+                    <input type="text" id="api-deviceid" class="filter-input" placeholder="lineSetup only">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">From (DOA)</label>
+                    <input type="date" id="api-startdate" class="filter-input">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">To (DOA)</label>
+                    <input type="date" id="api-enddate" class="filter-input">
+                </div>
                 <div class="filter-buttons">
                     <button class="btn btn-apply" onclick="loadApiLogs(1)">🔍 Apply</button>
-                    <button class="btn btn-reset" onclick="document.getElementById('api-factory').value='';loadApiLogs(1)">↺ Reset</button>
+                    <button class="btn btn-reset" onclick="resetApiFilters()">↺ Reset</button>
                 </div>
             </div>
         </div>
@@ -297,9 +331,26 @@
                     <label class="filter-label">Factory ID</label>
                     <input type="text" id="sync-factory" class="filter-input" placeholder="bgd-ana-app">
                 </div>
+                <div class="filter-item">
+                    <label class="filter-label">Endpoint</label>
+                    <select id="sync-endpoint" class="filter-input">
+                        <option value="">All</option>
+                        <option value="operationBreakdown">Operation Breakdown</option>
+                        <option value="lineSetup">Line Setup</option>
+                        <option value="tagMapping">Tag Mapping</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">From (DOA)</label>
+                    <input type="date" id="sync-startdate" class="filter-input">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">To (DOA)</label>
+                    <input type="date" id="sync-enddate" class="filter-input">
+                </div>
                 <div class="filter-buttons">
                     <button class="btn btn-apply" onclick="loadSyncLogs(1)">🔍 Apply</button>
-                    <button class="btn btn-reset" onclick="document.getElementById('sync-factory').value='';loadSyncLogs(1)">↺ Reset</button>
+                    <button class="btn btn-reset" onclick="resetSyncFilters()">↺ Reset</button>
                 </div>
             </div>
         </div>
@@ -328,9 +379,17 @@
                     <label class="filter-label">Device ID</label>
                     <input type="text" id="device-id" class="filter-input" placeholder="16" style="min-width:100px;">
                 </div>
+                <div class="filter-item">
+                    <label class="filter-label">From (DOA)</label>
+                    <input type="date" id="device-startdate" class="filter-input">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">To (DOA)</label>
+                    <input type="date" id="device-enddate" class="filter-input">
+                </div>
                 <div class="filter-buttons">
                     <button class="btn btn-apply" onclick="loadDeviceLogs(1)">🔍 Apply</button>
-                    <button class="btn btn-reset" onclick="document.getElementById('device-factory').value='';document.getElementById('device-id').value='';loadDeviceLogs(1)">↺ Reset</button>
+                    <button class="btn btn-reset" onclick="resetDeviceFilters()">↺ Reset</button>
                 </div>
             </div>
         </div>
@@ -355,9 +414,17 @@
                     <label class="filter-label">Factory ID</label>
                     <input type="text" id="devices-factory" class="filter-input" placeholder="bgd-ana-app">
                 </div>
+                <div class="filter-item">
+                    <label class="filter-label">Last Seen From</label>
+                    <input type="date" id="devices-startdate" class="filter-input">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">Last Seen To</label>
+                    <input type="date" id="devices-enddate" class="filter-input">
+                </div>
                 <div class="filter-buttons">
                     <button class="btn btn-apply" onclick="loadDevices(1)">🔍 Apply</button>
-                    <button class="btn btn-reset" onclick="document.getElementById('devices-factory').value='';loadDevices(1)">↺ Reset</button>
+                    <button class="btn btn-reset" onclick="resetDevicesFilters()">↺ Reset</button>
                     <button class="btn btn-danger" onclick="openBatchOtaConfirm()">🚀 Batch OTA (filtered factory)</button>
                 </div>
             </div>
@@ -384,9 +451,17 @@
                     <label class="filter-label">Factory ID</label>
                     <input type="text" id="env-factory" class="filter-input" placeholder="bgd-ana-app">
                 </div>
+                <div class="filter-item">
+                    <label class="filter-label">Reported From</label>
+                    <input type="date" id="env-startdate" class="filter-input">
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">Reported To</label>
+                    <input type="date" id="env-enddate" class="filter-input">
+                </div>
                 <div class="filter-buttons">
                     <button class="btn btn-apply" onclick="loadEnvSnapshots(1)">🔍 Apply</button>
-                    <button class="btn btn-reset" onclick="document.getElementById('env-factory').value='';loadEnvSnapshots(1)">↺ Reset</button>
+                    <button class="btn btn-reset" onclick="resetEnvFilters()">↺ Reset</button>
                 </div>
             </div>
         </div>
@@ -554,13 +629,33 @@
         return str.length > 60 ? str.slice(0, 57) + '...' : str;
     }
 
+    // ---------- API TRIGGERS tab ----------
     let apiPage = 1;
     let apiRowsData = [];
     async function loadApiLogs(page) {
         apiPage = page;
         const factory = document.getElementById('api-factory').value.trim();
-        const params = new URLSearchParams({ page, limit: 25 });
+        const path = document.getElementById('api-path').value;
+        // Tag ID / RFID / OB ID / Device ID all feed the same backend
+        // "search" param — whichever one has a value wins (first
+        // non-empty, checked in this order). They're all just
+        // substring search against the request body, so there's no
+        // need for 4 separate backend parameters.
+        const search = [
+            document.getElementById('api-tagid').value.trim(),
+            document.getElementById('api-rfid').value.trim(),
+            document.getElementById('api-obid').value.trim(),
+            document.getElementById('api-deviceid').value.trim(),
+        ].find((v) => v.length > 0) || '';
+        const startDate = document.getElementById('api-startdate').value;
+        const endDate = document.getElementById('api-enddate').value;
+
+        const params = new URLSearchParams({ page, limit: 25, path });
         if (factory) params.set('factory_id', factory);
+        if (search) params.set('search', search);
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
+
         const res = await fetch('/logs/api-triggers?' + params.toString());
         const json = await res.json();
         const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
@@ -588,6 +683,17 @@
         document.getElementById('sumApi').textContent = data.total;
         updateFactorySummary(factory);
     }
+    function resetApiFilters() {
+        document.getElementById('api-factory').value = '';
+        document.getElementById('api-path').value = 'all';
+        document.getElementById('api-tagid').value = '';
+        document.getElementById('api-rfid').value = '';
+        document.getElementById('api-obid').value = '';
+        document.getElementById('api-deviceid').value = '';
+        document.getElementById('api-startdate').value = '';
+        document.getElementById('api-enddate').value = '';
+        loadApiLogs(1);
+    }
 
     function openApiLogModal(index) {
         const r = apiRowsData[index];
@@ -602,13 +708,20 @@
     function apiPrev() { if (apiPage > 1) loadApiLogs(apiPage - 1); }
     function apiNext() { loadApiLogs(apiPage + 1); }
 
+    // ---------- SYNC LOG tab ----------
     let syncPage = 1;
     let syncRowsData = [];
     async function loadSyncLogs(page) {
         syncPage = page;
         const factory = document.getElementById('sync-factory').value.trim();
+        const endpoint = document.getElementById('sync-endpoint').value;
+        const startDate = document.getElementById('sync-startdate').value;
+        const endDate = document.getElementById('sync-enddate').value;
         const params = new URLSearchParams({ page, limit: 25 });
         if (factory) params.set('factory_id', factory);
+        if (endpoint) params.set('endpoint', endpoint);
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
         const res = await fetch('/logs/sync?' + params.toString());
         const json = await res.json();
         const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
@@ -635,6 +748,13 @@
         document.getElementById('sumSync').textContent = data.total;
         updateFactorySummary(factory);
     }
+    function resetSyncFilters() {
+        document.getElementById('sync-factory').value = '';
+        document.getElementById('sync-endpoint').value = '';
+        document.getElementById('sync-startdate').value = '';
+        document.getElementById('sync-enddate').value = '';
+        loadSyncLogs(1);
+    }
 
     function openSyncLogModal(index) {
         const r = syncRowsData[index];
@@ -648,23 +768,32 @@
     function syncPrev() { if (syncPage > 1) loadSyncLogs(syncPage - 1); }
     function syncNext() { loadSyncLogs(syncPage + 1); }
 
+    // ---------- DEVICE MQTT tab ----------
     let devicePage = 1;
+    let deviceRowsData = [];
     async function loadDeviceLogs(page) {
         devicePage = page;
         const factory = document.getElementById('device-factory').value.trim();
         const deviceId = document.getElementById('device-id').value.trim();
+        const startDate = document.getElementById('device-startdate').value;
+        const endDate = document.getElementById('device-enddate').value;
         const params = new URLSearchParams({ page, limit: 25 });
         if (factory) params.set('factory_id', factory);
         if (deviceId) params.set('device_id', deviceId);
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
         const res = await fetch('/logs/device-mqtt?' + params.toString());
         const json = await res.json();
         const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
+        deviceRowsData = data.rows;
         const tbody = document.getElementById('device-tbody');
         tbody.innerHTML = '';
         document.getElementById('device-empty').style.display = data.rows.length ? 'none' : 'block';
-        data.rows.forEach((r) => {
+        data.rows.forEach((r, i) => {
             const dirClass = 'dir-' + (r.direction || 'OUT');
             const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => openDeviceLogModal(i);
             tr.innerHTML = '<td><span class="badge ' + dirClass + '">' + escapeHtml(r.direction) + '</span></td>' +
                 '<td>' + escapeHtml(r.factory_id) + '</td>' +
                 '<td>' + escapeHtml(r.device_id) + '</td>' +
@@ -680,16 +809,41 @@
         document.getElementById('sumDevice').textContent = data.total;
         updateFactorySummary(factory);
     }
+    function resetDeviceFilters() {
+        document.getElementById('device-factory').value = '';
+        document.getElementById('device-id').value = '';
+        document.getElementById('device-startdate').value = '';
+        document.getElementById('device-enddate').value = '';
+        loadDeviceLogs(1);
+    }
     function devicePrev() { if (devicePage > 1) loadDeviceLogs(devicePage - 1); }
     function deviceNext() { loadDeviceLogs(devicePage + 1); }
+
+    // NEW: row click -> payload popup, same JSON modal pattern used
+    // everywhere else in this dashboard.
+    function openDeviceLogModal(index) {
+        const r = deviceRowsData[index];
+        if (!r) return;
+        let parsedPayload;
+        try { parsedPayload = JSON.parse(r.payload); } catch (e) { parsedPayload = r.payload; }
+        const sections = [
+            { label: 'Message', content: { direction: r.direction, factory_id: r.factory_id, device_id: r.device_id, msg_type: r.msg_type, topic: r.topic, created_at: r.created_at } },
+            { label: 'Payload', content: parsedPayload },
+        ];
+        openJsonModal(r.direction + ' — ' + (r.msg_type || 'unknown'), sections);
+    }
 
     // ---------- DEVICES tab (registry + OTA trigger) ----------
     let devicesPage = 1;
     async function loadDevices(page) {
         devicesPage = page;
         const factory = document.getElementById('devices-factory').value.trim();
+        const startDate = document.getElementById('devices-startdate').value;
+        const endDate = document.getElementById('devices-enddate').value;
         const params = new URLSearchParams({ page, limit: 25 });
         if (factory) params.set('factory_id', factory);
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
         const res = await fetch('/devices?' + params.toString());
         const json = await res.json();
         const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
@@ -709,7 +863,7 @@
                 '<td><button class="btn btn-danger" style="padding:5px 12px; font-size:0.78em;">🚀 OTA</button></td>';
             const otaBtn = tr.querySelector('td:last-child button');
             otaBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // don't also trigger the row's own click (last-message viewer)
+                e.stopPropagation();
                 openDeviceOtaConfirm(r.factory_id, r.device_id);
             });
             tbody.appendChild(tr);
@@ -718,6 +872,12 @@
         document.getElementById('devices-totalpages').textContent = data.totalPages || 1;
         document.getElementById('devices-total').textContent = data.total;
         updateFactorySummary(factory);
+    }
+    function resetDevicesFilters() {
+        document.getElementById('devices-factory').value = '';
+        document.getElementById('devices-startdate').value = '';
+        document.getElementById('devices-enddate').value = '';
+        loadDevices(1);
     }
     function devicesPrev() { if (devicesPage > 1) loadDevices(devicesPage - 1); }
     function devicesNext() { loadDevices(devicesPage + 1); }
@@ -728,8 +888,12 @@
     async function loadEnvSnapshots(page) {
         envPage = page;
         const factory = document.getElementById('env-factory').value.trim();
+        const startDate = document.getElementById('env-startdate').value;
+        const endDate = document.getElementById('env-enddate').value;
         const params = new URLSearchParams({ page, limit: 25 });
         if (factory) params.set('factory_id', factory);
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
         const res = await fetch('/logs/env?' + params.toString());
         const json = await res.json();
         const data = json.data || { rows: [], total: 0, page: 1, totalPages: 1 };
@@ -753,6 +917,12 @@
         document.getElementById('env-total').textContent = data.total;
         updateFactorySummary(factory);
     }
+    function resetEnvFilters() {
+        document.getElementById('env-factory').value = '';
+        document.getElementById('env-startdate').value = '';
+        document.getElementById('env-enddate').value = '';
+        loadEnvSnapshots(1);
+    }
     function envPrev() { if (envPage > 1) loadEnvSnapshots(envPage - 1); }
     function envNext() { loadEnvSnapshots(envPage + 1); }
 
@@ -766,9 +936,6 @@
         openJsonModal('Env — ' + r.factory_id, sections);
     }
 
-    // Row click opens the last-message viewer (same JSON modal pattern as
-    // API Triggers/Sync Log); the OTA button is a separate action with
-    // its click stopped from bubbling into the row handler.
     function openLastMsgModal(r) {
         const sections = [
             { label: 'Device', content: { factory_id: r.factory_id, device_id: r.device_id, mac: r.mac, fw_version: r.fw_version } },
@@ -822,8 +989,6 @@
             alert('Enter a Factory ID in the filter above first — batch OTA always targets exactly one factory, never all of them at once.');
             return;
         }
-        // Fetch just the count (limit=1 keeps this cheap — total comes
-        // back regardless of how many rows are actually returned).
         const res = await fetch('/devices?' + new URLSearchParams({ factory_id, page: 1, limit: 1 }).toString());
         const json = await res.json();
         const total = json.data ? json.data.total : 0;

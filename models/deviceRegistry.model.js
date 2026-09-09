@@ -13,20 +13,12 @@ async function connect() {
   const client = new MongoClient(MONGO_URL);
   await client.connect();
   db = client.db(DB_NAME);
-  // One row per device — device_id is unique WITHIN a factory (two
-  // factories could reuse the same device_id, e.g. both have a "16"),
-  // so the real unique key is the pair.
   await db.collection(COLLECTION).createIndex({ factory_id: 1, device_id: 1 }, { unique: true });
   await db.collection(COLLECTION).createIndex({ factory_id: 1 });
   console.log('[global] device_registry collection ready');
   return db;
 }
 
-// Called on every forwarded device-mqtt log entry. Cheap upsert — always
-// refreshes last_msg/last_msg_at regardless of message type, and ALSO
-// pulls mac/fw_version out of it when present (only "status"/"DEBUG"
-// heartbeat messages carry those — see mqtt_bridge.js's onStatus/
-// onDeviceHeartbeat and the firmware's own periodic heartbeat publish).
 async function recordFromLog({ factory_id, device_id, direction, topic, msg_type, payload, created_at }) {
   if (!factory_id || !device_id) return;
 
@@ -36,7 +28,7 @@ async function recordFromLog({ factory_id, device_id, direction, topic, msg_type
   try {
     parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
   } catch (e) {
-    // payload wasn't JSON — fine, just skip mac/fw extraction below
+    // not JSON — skip mac/fw extraction below
   }
 
   const update = {
@@ -55,9 +47,6 @@ async function recordFromLog({ factory_id, device_id, direction, topic, msg_type
     },
   };
 
-  // mac and fw only ever show up together, on connect-status and
-  // heartbeat messages — RSSI/uptime aren't tracked here since they're
-  // point-in-time, not identity fields worth persisting.
   if (parsed && parsed.mac) update.$set.mac = parsed.mac;
   if (parsed && parsed.fw) update.$set.fw_version = parsed.fw;
 
@@ -68,10 +57,17 @@ async function recordFromLog({ factory_id, device_id, direction, topic, msg_type
   );
 }
 
-async function getDevices({ factory_id, page = 1, limit = 50 }) {
+// factory_id        - exact match
+// startDate/endDate - filters on last_msg_at (i.e. "last seen within this range")
+async function getDevices({ factory_id, startDate, endDate, page = 1, limit = 50 }) {
   const database = await connect();
   const filter = {};
   if (factory_id) filter.factory_id = factory_id;
+  if (startDate || endDate) {
+    filter.last_msg_at = {};
+    if (startDate) filter.last_msg_at.$gte = `${startDate} 00:00:00`;
+    if (endDate) filter.last_msg_at.$lte = `${endDate} 23:59:59`;
+  }
 
   const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);

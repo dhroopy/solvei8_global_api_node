@@ -13,9 +13,6 @@ async function connect() {
   const client = new MongoClient(MONGO_URL);
   await client.connect();
   db = client.db(DB_NAME);
-  // One document per factory — each new report overwrites the previous
-  // snapshot for that factory, since only the LATEST config is useful
-  // here, not a history of every past env.
   await db.collection(COLLECTION).createIndex({ factory_id: 1 }, { unique: true });
   console.log('[global] env_registry collection ready');
   return db;
@@ -34,14 +31,17 @@ async function upsertEnv(factory_id, env) {
   );
 }
 
-// Simple list — one row per factory, latest snapshot only, so
-// pagination is lighter-weight here than the log tabs (there's only
-// ever as many rows as there are factories, not as many as there are
-// events).
-async function getEnvSnapshots({ factory_id, page = 1, limit = 50 }) {
+// factory_id        - exact match
+// startDate/endDate - filters on updated_at
+async function getEnvSnapshots({ factory_id, startDate, endDate, page = 1, limit = 50 }) {
   const database = await connect();
   const filter = {};
   if (factory_id) filter.factory_id = factory_id;
+  if (startDate || endDate) {
+    filter.updated_at = {};
+    if (startDate) filter.updated_at.$gte = `${startDate} 00:00:00`;
+    if (endDate) filter.updated_at.$lte = `${endDate} 23:59:59`;
+  }
 
   const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
